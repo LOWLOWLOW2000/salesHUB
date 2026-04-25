@@ -1,0 +1,49 @@
+.DS_Store
+Thumbs.db
+
+# env files (often contain secrets)
+.env
+.env.*
+!.env.example
+
+# Node / build artifacts
+node_modules/
+.next/
+dist/
+build/
+out/
+.turbo/
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cursor / local editor artifacts
+.cursor/
+
+# Documents / media (keep repo lightweight)
+案件_SWW/
+*.mkv
+*.mp4
+*.mov
+*.avi
+*.zip
+*.7z
+*.rar
+*.pdf
+*.pptx
+*.xlsx
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Windows artifacts
+desktop.ini
+*.lnk
+
