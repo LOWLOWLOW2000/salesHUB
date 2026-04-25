@@ -40,6 +40,18 @@ export default async function AllowedEmailsPage() {
     select: { id: true, email: true, createdAt: true }
   })
 
+  const users = await prisma.user.findMany({
+    where: { email: { in: emails.map((e) => e.email) } },
+    select: {
+      email: true,
+      name: true,
+      onboardingCompletedAt: true,
+      primaryWorkspace: { select: { type: true, name: true } }
+    }
+  })
+
+  const userByEmail = new Map(users.flatMap((u) => (u.email ? [[u.email, u] as const] : [])))
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -71,23 +83,42 @@ export default async function AllowedEmailsPage() {
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold">一覧</div>
         <ul className="divide-y divide-zinc-100">
-          {emails.map((row) => (
-            <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-              <div className="text-sm">
-                <div className="font-medium text-zinc-950">{row.email}</div>
-                <div className="text-xs text-zinc-600">{row.createdAt.toISOString()}</div>
-              </div>
-              <form action={removeAllowedEmail}>
-                <input type="hidden" name="email" value={row.email} />
-                <button
-                  type="submit"
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-300 hover:text-zinc-950"
-                >
-                  削除
-                </button>
-              </form>
-            </li>
-          ))}
+          {emails.map((row) => {
+            const user = userByEmail.get(row.email)
+
+            return (
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="text-sm">
+                  <div className="font-medium text-zinc-950">{row.email}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+                    <span>登録: {row.createdAt.toISOString()}</span>
+                    <span>
+                      プロフィール: {user?.name ? user.name : '(未入力)'}
+                    </span>
+                    <span>
+                      Onboarding:{' '}
+                      {user?.onboardingCompletedAt ? '完了' : '未完了/未ログイン'}
+                    </span>
+                    <span>
+                      Workspace:{' '}
+                      {user?.primaryWorkspace
+                        ? `${user.primaryWorkspace.name} (${user.primaryWorkspace.type})`
+                        : '(未設定)'}
+                    </span>
+                  </div>
+                </div>
+                <form action={removeAllowedEmail}>
+                  <input type="hidden" name="email" value={row.email} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-300 hover:text-zinc-950"
+                  >
+                    削除
+                  </button>
+                </form>
+              </li>
+            )
+          })}
         </ul>
       </div>
     </div>

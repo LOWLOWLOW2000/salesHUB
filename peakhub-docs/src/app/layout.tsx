@@ -36,17 +36,11 @@ export default function RootLayout({
               {appConfig.name}
             </Link>
             <nav className="flex items-center gap-3 text-sm text-zinc-700">
-              <Link className="hover:text-zinc-950" href="/docs/slides">
-                Slides
-              </Link>
-              <Link className="hover:text-zinc-950" href="/docs/kpi">
-                KPI
-              </Link>
-              <Link className="hover:text-zinc-950" href="/docs/visuals">
-                Visuals
-              </Link>
               <Link className="hover:text-zinc-950" href="/admin">
                 Admin
+              </Link>
+              <Link className="hover:text-zinc-950" href="/api/auth/signin">
+                Sign in
               </Link>
             </nav>
           </div>

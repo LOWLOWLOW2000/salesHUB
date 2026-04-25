@@ -12,6 +12,21 @@ enum AppRole {
   director
 }
 
+enum WorkspaceType {
+  client
+  auto_squad
+}
+
+enum WorkspaceRole {
+  owner
+  director
+  member
+  viewer
+  is
+  fs
+  manager
+}
+
 enum KpiGranularity {
   week
   month
@@ -128,6 +143,8 @@ model User {
   email         String?  @unique
   emailVerified DateTime?
   image         String?
+  onboardingCompletedAt DateTime?
+  primaryWorkspaceId    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -135,6 +152,39 @@ model User {
   sessions      Session[]
   companyRoles  CompanyMember[]
   projectRoles  ProjectMember[]
+  workspaceRoles WorkspaceMember[]
+
+  primaryWorkspace Workspace? @relation("PrimaryWorkspace", fields: [primaryWorkspaceId], references: [id], onDelete: SetNull)
+}
+
+model Workspace {
+  id        String        @id @default(cuid())
+  type      WorkspaceType
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  members   WorkspaceMember[]
+  primaryForUsers User[]  @relation("PrimaryWorkspace")
+
+  @@unique([type, name])
+  @@index([type])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
 }
 
 model CompanyMember {

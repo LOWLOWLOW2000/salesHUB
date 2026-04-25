@@ -1,46 +1,83 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { getSession } from '@/lib/auth/session'
+import { prisma } from '@/lib/db/prisma'
+import { AppShell } from '@/app/_components/AppShell'
 
-export default function Home() {
-  return (
-    <div className="space-y-8">
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">PeakHUB 資料</h1>
-        <p className="max-w-2xl text-sm leading-6 text-zinc-700">
-          「スライド構成」「KPI定義」「インフォグラフィック指示書」を、更新しやすいドキュメントとして運用するためのサイトです。
-        </p>
-      </div>
+export default async function Home() {
+  const session = await getSession()
+  const userId = session?.user?.id
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          {
-            title: 'Slides',
-            href: '/docs/slides',
-            description: '20枚のスライド構成（章立て）'
-          },
-          {
-            title: 'KPI',
-            href: '/docs/kpi',
-            description: '集計定義・派生率・週次レビュー順'
-          },
-          {
-            title: 'Visuals',
-            href: '/docs/visuals',
-            description: 'ファネル/掛け算/タイムライン等の図解ルール'
-          }
-        ].map(({ title, href, description }) => (
+  if (!userId) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Sales Consulting Hub</h1>
+          <p className="max-w-2xl text-sm leading-6 text-zinc-700">
+            ログイン後に、クライアントワーク（案件/戦略戦術/1on1/評価/塾）と、自動部隊（IS01管理）を切り分けて運用します。
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
           <Link
-            key={href}
-            href={href}
-            className="group rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow"
+            href="/api/auth/signin"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
           >
-            <div className="text-sm font-semibold">{title}</div>
-            <div className="mt-2 text-sm leading-6 text-zinc-600">{description}</div>
-            <div className="mt-4 text-xs font-medium text-zinc-500 group-hover:text-zinc-700">
-              開く →
-            </div>
+            Googleでログイン
           </Link>
-        ))}
+          <Link
+            href="/admin"
+            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-300 hover:text-zinc-950"
+          >
+            Admin
+          </Link>
+        </div>
       </div>
-    </div>
+    )
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      name: true,
+      email: true,
+      onboardingCompletedAt: true,
+      primaryWorkspace: { select: { type: true, name: true } }
+    }
+  })
+
+  if (!user?.onboardingCompletedAt) redirect('/onboarding')
+
+  return (
+    <AppShell
+      title="メイン"
+      subtitle={[
+        user.primaryWorkspace ? `${user.primaryWorkspace.name} (${user.primaryWorkspace.type})` : 'workspace未設定',
+        user.name ?? user.email ?? ''
+      ]
+        .filter((v) => v.length > 0)
+        .join(' / ')}
+    >
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            { title: '案件管理', description: 'クライアントワークの案件を整理' },
+            { title: '戦略戦術', description: '位相/戦術の検討と記録' },
+            { title: '1on1', description: '面談ログとアクション' },
+            { title: '評価', description: 'チーム評価・個人評価' },
+            { title: '戦略苦戦塾', description: '学習/振り返りの運用' }
+          ].map((c) => (
+            <div key={c.title} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <div className="text-sm font-semibold">{c.title}</div>
+              <div className="mt-1 text-sm leading-6 text-zinc-600">{c.description}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-xs text-zinc-600">
+          ※ ここから先の各機能ページは順次作っていきます
+        </div>
+      </div>
+    </AppShell>
   )
 }
