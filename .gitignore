@@ -17,7 +17,7 @@ out/
 
 # Local DB (Prisma dev)
 *.db
-peakhub-docs/prisma/dev.db
+sales_hub/prisma/dev.db
 
 # Logs
 npm-debug.log*

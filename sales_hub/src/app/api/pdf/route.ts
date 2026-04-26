@@ -49,7 +49,7 @@ export const GET = async (request: NextRequest) => {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="peakhub-docs${path
+        'Content-Disposition': `attachment; filename="sales_hub${path
           .replaceAll('/', '_')
           .replaceAll('\\\\', '_')}.pdf"`
       }
