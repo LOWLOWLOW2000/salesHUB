@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: saleshub
+      POSTGRES_PASSWORD: saleshub
+      POSTGRES_DB: saleshub
+    volumes:
+      - saleshub_pg_data:/var/lib/postgresql/data
+
+volumes:
+  saleshub_pg_data:

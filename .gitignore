@@ -6,6 +6,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Legacy app folder name (app code is under sales_hub/)
+peakhub-docs/
+
 # Node / build artifacts
 node_modules/
 .next/
@@ -27,6 +30,17 @@ pnpm-debug.log*
 
 # Cursor / local editor artifacts
 .cursor/
+
+# Zoom recordings & data project raw files
+data_project/**/zoom_recordings/
+data_project/**/.venv/
+data_project/**/zoom_auth.json
+data_project/**/zoom_storage_state.json
+**/zoom_auth.json
+**/zoom_storage_state.json
+*.mp3
+*.m4a
+*.vtt
 
 # Documents / media (keep repo lightweight)
 案件_SWW/
