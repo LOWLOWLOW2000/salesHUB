@@ -72,3 +72,9 @@ desktop.ini
 **/.ai/history.jsonl
 **/.ai/rules.pending.md
 
+# Local working directories
+.venv/
+.venv-xlsx/
+IS_01_hangar/
+call_rec/
+
