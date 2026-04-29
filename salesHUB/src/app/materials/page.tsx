@@ -11,7 +11,7 @@ import { MaterialExportPanel } from '@/app/materials/MaterialExportPanel'
 export default async function MaterialsPage() {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

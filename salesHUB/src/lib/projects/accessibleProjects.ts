@@ -8,7 +8,7 @@ export type AccessibleProject = {
 }
 
 /**
- * Projects the user may open (gm: all company projects; others: ProjectMember only).
+ * Projects the user may open (gm/manager/as: all company projects; others: ProjectMember only).
  */
 export const getAccessibleProjects = async (userId: string): Promise<AccessibleProject[]> => {
   const company = await getOrCreateDefaultCompany()
@@ -17,7 +17,7 @@ export const getAccessibleProjects = async (userId: string): Promise<AccessibleP
     where: {
       userId,
       companyId: company.id,
-      role: { in: ['director', 'as'] }
+      role: { in: ['manager', 'as'] }
     },
     select: { id: true }
   })
@@ -38,9 +38,14 @@ export const getAccessibleProjects = async (userId: string): Promise<AccessibleP
 }
 
 /**
- * Whether the user may access a given Project id (always validate on the server).
+ * Whether the user may view / open a project (nav, read APIs, KPI AI save, etc.).
  */
-export const canAccessProject = async (userId: string, projectId: string): Promise<boolean> => {
+export const canViewProject = async (userId: string, projectId: string): Promise<boolean> => {
   const projects = await getAccessibleProjects(userId)
   return projects.some((p) => p.id === projectId)
 }
+
+/**
+ * Back-compat alias of {@link canViewProject}.
+ */
+export const canAccessProject = canViewProject

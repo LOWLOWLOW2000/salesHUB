@@ -13,17 +13,27 @@ const getGoogleAccountScope = async (userId: string) => {
   return parseOAuthScope(account?.scope)
 }
 
+const hasGoogleAccount = async (userId: string) => {
+  const row = await prisma.account.findFirst({
+    where: { userId, provider: 'google' },
+    select: { id: true }
+  })
+  return Boolean(row)
+}
+
 export default async function AuthAfterPage() {
   const session = await getSession()
   const userId = session?.user?.id
 
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const required = requiredGoogleScopes()
-  const granted = await getGoogleAccountScope(userId)
-  const ok = hasAllScopes(granted, required)
+  const linkedGoogle = await hasGoogleAccount(userId)
 
-  if (required.length > 0 && !ok) {
+  const granted = linkedGoogle ? await getGoogleAccountScope(userId) : []
+  const ok = !linkedGoogle || required.length === 0 || hasAllScopes(granted, required)
+
+  if (linkedGoogle && required.length > 0 && !ok) {
     return (
       <div className="space-y-6">
         <div className="space-y-2">
@@ -35,7 +45,7 @@ export default async function AuthAfterPage() {
 
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
           >
             再接続する

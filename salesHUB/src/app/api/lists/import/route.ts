@@ -13,7 +13,7 @@ const canManageList = async (userId: string, companyId: string, ownerUserId: str
     where: {
       userId,
       companyId,
-      role: { in: ['director', 'as'] }
+      role: { in: ['manager', 'as'] }
     },
     select: { id: true }
   })
@@ -81,6 +81,7 @@ export const POST = async (req: Request) => {
   let imported = 0
 
   for (const row of rows) {
+    const leadId = row.leadId.length > 0 ? row.leadId : undefined
     const account = await prisma.salesAccount.upsert({
       where: {
         companyId_clientRowId: {
@@ -94,13 +95,15 @@ export const POST = async (req: Request) => {
         nameNorm: row.nameNorm,
         phoneNorm: row.phoneNorm,
         clientRowId: row.clientRowId,
+        leadId,
         headOfficeAddress: row.address,
         domain: domainFromUrl(row.targetUrl) || undefined
       },
       update: {
         displayName: row.companyName,
         headOfficeAddress: row.address,
-        domain: domainFromUrl(row.targetUrl) || undefined
+        domain: domainFromUrl(row.targetUrl) || undefined,
+        ...(leadId !== undefined && { leadId })
       },
       select: { id: true }
     })

@@ -31,6 +31,9 @@ pnpm-debug.log*
 # Cursor / local editor artifacts
 .cursor/
 
+# OAuth/Drive secrets and local logs
+.secrets/
+
 # Zoom recordings & data project raw files
 data_project/**/zoom_recordings/
 data_project/**/.venv/
@@ -64,4 +67,8 @@ data_project/**/zoom_storage_state.json
 # Windows artifacts
 desktop.ini
 *.lnk
+
+# AI task management (history is local, schema/rules are committed)
+**/.ai/history.jsonl
+**/.ai/rules.pending.md
 

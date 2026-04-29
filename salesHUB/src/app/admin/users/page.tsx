@@ -2,11 +2,12 @@ import Link from 'next/link'
 import type { AppRole } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { requireGm } from '@/lib/auth/requireGm'
+import { appRoleUiLabel } from '@/lib/auth/app-role-labels'
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
-/** Company-scoped roles GM can grant (not gm via UI). */
-const assignableCompanyRoles: AppRole[] = ['director', 'as', 'is', 'fs', 'cs']
+/** Company-scoped tiers GM can grant (`director` is project-scope only). */
+const assignableCompanyRoles: AppRole[] = ['manager', 'as', 'is', 'fs', 'cs']
 
 const assignCompanyRole = async (formData: FormData) => {
   'use server'
@@ -69,7 +70,7 @@ export default async function AdminUsersPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Company roles</h1>
-          <p className="text-sm text-zinc-700">会社スコープのロール（Director / AS 同権のベース）</p>
+          <p className="text-sm text-zinc-700">会社スコープ（Manager は全PJ閲覧〜、Director は案件メンバーで付与）</p>
         </div>
         <Link className="text-sm text-zinc-700 hover:text-zinc-950" href="/admin">
           ← Admin
@@ -80,7 +81,9 @@ export default async function AdminUsersPage() {
         {members.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm text-zinc-800">
-              <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium">{m.role}</span>{' '}
+              <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-medium" title={appRoleUiLabel(m.role)}>
+                {m.role}
+              </span>{' '}
               {m.user.email} {m.user.name ? <span className="text-xs text-zinc-500">({m.user.name})</span> : null}
             </div>
             {m.role !== 'gm' ? (
@@ -108,10 +111,10 @@ export default async function AdminUsersPage() {
           placeholder="user@example.com"
           className="w-full max-w-xs rounded-lg border border-zinc-200 px-3 py-2 text-sm"
         />
-        <select name="role" className="rounded-lg border border-zinc-200 px-3 py-2 text-sm" defaultValue="director">
+        <select name="role" className="rounded-lg border border-zinc-200 px-3 py-2 text-sm" defaultValue="manager">
           {assignableCompanyRoles.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {r} — {appRoleUiLabel(r)}
             </option>
           ))}
         </select>

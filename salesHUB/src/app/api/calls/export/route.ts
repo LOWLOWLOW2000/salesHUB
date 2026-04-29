@@ -32,19 +32,22 @@ export const GET = async (req: Request) => {
     take: 10_000,
     include: {
       user: { select: { email: true } },
-      account: { select: { displayName: true, clientRowId: true } }
+      account: { select: { displayName: true, clientRowId: true, leadId: true } },
+      project: { select: { name: true, slug: true } }
     }
   })
 
-  const header = ['startedAt', 'userEmail', 'result', 'memo', 'accountName', 'clientRowId', 'accountId']
+  const header = ['startedAt', 'projectSlug', 'projectName', 'userEmail', 'result', 'memo', 'accountName', 'lead_id', 'accountId']
   const lines = logs.map((log) =>
     [
       log.startedAt.toISOString(),
+      log.project.slug ?? '',
+      log.project.name,
       log.user.email ?? '',
       log.result,
       log.memo,
       log.account.displayName,
-      log.account.clientRowId,
+      log.account.leadId ?? '',
       log.accountId
     ]
       .map((c) => csvEscape(String(c)))

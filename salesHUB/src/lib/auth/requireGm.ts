@@ -9,7 +9,7 @@ import { hasCompanyRole } from '@/lib/auth/rbac'
 export const requireGm = async () => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const company = await getOrCreateDefaultCompany()
   const ok = await hasCompanyRole(userId, company.id, 'gm')

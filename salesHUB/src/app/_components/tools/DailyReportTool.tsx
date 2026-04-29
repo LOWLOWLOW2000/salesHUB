@@ -2,9 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { getSession } from '@/lib/auth/session'
-import { getOrCreateDefaultCompany } from '@/lib/auth/company'
-import { hasCompanyRole } from '@/lib/auth/rbac'
-import { canAccessProject } from '@/lib/projects/accessibleProjects'
+import { canOperateProject } from '@/lib/auth/rbac'
 import {
   dailyReportFormSchema,
   parseDateInput,
@@ -16,6 +14,8 @@ import { DailyReportForm } from '@/app/_components/tools/DailyReportForm'
 
 type Props = {
   projectId: string
+  canOperate: boolean
+  canConfigure: boolean
 }
 
 const saveDailyReport = async (formData: FormData) => {
@@ -23,10 +23,12 @@ const saveDailyReport = async (formData: FormData) => {
 
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const parsed = dailyReportFormSchema.parse(Object.fromEntries(formData))
-  const allowed = await canAccessProject(userId, parsed.projectId)
+  const reportDate = parseDateInput(parsed.date)
+  const reportId = `${parsed.projectId}:${userId}:${parsed.date}`
+  const allowed = await canOperateProject(userId, parsed.projectId)
   if (!allowed) redirect('/')
 
   await prisma.dailyReport.upsert({
@@ -34,7 +36,7 @@ const saveDailyReport = async (formData: FormData) => {
       projectId_userId_date: {
         projectId: parsed.projectId,
         userId,
-        date: parseDateInput(parsed.date)
+        date: reportDate
       }
     },
     update: {
@@ -53,9 +55,10 @@ const saveDailyReport = async (formData: FormData) => {
       appointmentReasonTags: parsed.appointmentReasonTags
     },
     create: {
+      id: reportId,
       projectId: parsed.projectId,
       userId,
-      date: parseDateInput(parsed.date),
+      date: reportDate,
       callCount: parsed.callCount,
       connectCount: parsed.connectCount,
       receptionNgCount: parsed.receptionNgCount,
@@ -73,18 +76,6 @@ const saveDailyReport = async (formData: FormData) => {
   })
 
   revalidatePath(`/project/${parsed.projectId}`)
-}
-
-const canViewProjectReports = async (userId: string, projectId: string) => {
-  const company = await getOrCreateDefaultCompany()
-  if (await hasCompanyRole(userId, company.id, 'gm')) return true
-
-  const mgmt = await prisma.projectMember.findFirst({
-    where: { userId, projectId, role: { in: ['director', 'as'] } },
-    select: { id: true }
-  })
-
-  return Boolean(mgmt)
 }
 
 const emptyDefaults = (projectId: string): DailyReportInput => ({
@@ -108,12 +99,12 @@ const emptyDefaults = (projectId: string): DailyReportInput => ({
 /**
  * プロジェクトの日報入力と直近日報を表示する Server Component。
  */
-export const DailyReportTool = async ({ projectId }: Props) => {
+export const DailyReportTool = async ({ projectId, canOperate, canConfigure }: Props) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
-  const canViewAll = await canViewProjectReports(userId, projectId)
+  const canViewAll = canConfigure
   const today = parseDateInput(todayDateInput())
   const currentReport = await prisma.dailyReport.findUnique({
     where: {
@@ -174,7 +165,12 @@ export const DailyReportTool = async ({ projectId }: Props) => {
         </p>
       </header>
 
-      <DailyReportForm action={saveDailyReport} projectId={projectId} defaultValues={defaults} />
+      <DailyReportForm
+        action={saveDailyReport}
+        projectId={projectId}
+        defaultValues={defaults}
+        readOnly={!canOperate}
+      />
 
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-zinc-900">直近の日報</h3>

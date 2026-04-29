@@ -10,13 +10,13 @@ const describeError = (code: string | undefined) => {
       return {
         title: 'サインインが拒否されました',
         body:
-          'このアプリでは、Google アカウントのメールが許可リストに含まれるか、環境変数 GM_EMAIL と一致する必要があります。管理者に AllowedEmail への登録を依頼するか、ローカル開発なら .env.local の GM_EMAIL を確認してください。'
+          'メールが許可リスト（AllowedEmail）に含まれるか、環境変数 GM_EMAIL と一致する必要があります。ID/パスワード（Credentials）で入る場合も同じ条件です。GM に登録を依頼するか、ローカルなら .env.local の GM_EMAIL / AllowedEmail を確認してください。'
       }
     case 'Configuration':
       return {
         title: '認証の設定に問題があります',
         body:
-          'NEXTAUTH_SECRET、GOOGLE_CLIENT_ID、GOOGLE_CLIENT_SECRET、NEXTAUTH_URL などが .env.local に正しく設定されているか確認してください。'
+          'NEXTAUTH_SECRET / NEXTAUTH_URL は必須です。Google でログインする場合は GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET も必要です。メールとパスワードのみにする場合は ENABLE_CREDENTIALS_AUTH を有効にし、少なくとも Google か Credentials のどちらか一方のプロバイダが登録されるよう環境変数を揃えてください。'
       }
     case 'Verification':
       return {
@@ -26,7 +26,8 @@ const describeError = (code: string | undefined) => {
     default:
       return {
         title: 'サインインに失敗しました',
-        body: 'しばらくしてから再度お試しください。問題が続く場合は OAuth の設定と Google Cloud Console のリダイレクト URI を確認してください。'
+        body:
+          'しばらくしてから再度お試しください。問題が続く場合は OAuth の設定（Google のリダイレクト URI）や メール/パスワード を確認してください。'
       }
   }
 }
@@ -51,7 +52,7 @@ export default async function AuthErrorPage({ searchParams }: Props) {
       </div>
 
       <ul className="max-w-2xl list-disc space-y-1 pl-5 text-sm text-zinc-700">
-        <li>Google Cloud Console の「承認済みのリダイレクト URI」に、実際のオリジン付きの /api/auth/callback/google が登録されているか。</li>
+        <li>Google でログインする場合: Cloud Console の「承認済みのリダイレクト URI」に /api/auth/callback/google が登録されているか。</li>
         <li>NEXTAUTH_URL がブラウザのアドレスバーのオリジンと一致しているか。</li>
       </ul>
 
@@ -63,7 +64,7 @@ export default async function AuthErrorPage({ searchParams }: Props) {
           セットアップ手順（要約）
         </Link>
         <Link
-          href="/api/auth/signin"
+          href="/auth/signin"
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
         >
           再度サインイン

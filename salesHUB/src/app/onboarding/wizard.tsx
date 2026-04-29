@@ -2,14 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { appRoleUiLabel } from '@/lib/auth/app-role-labels'
 
-const roles = [
-  { id: 'director', label: 'Director（案件）' },
-  { id: 'as', label: 'AS（新規獲得）' },
-  { id: 'is', label: 'IS' },
-  { id: 'fs', label: 'FS' },
-  { id: 'cs', label: 'CS' }
-] as const
+const roles = (
+  ['manager', 'as', 'is', 'fs', 'cs'] as const
+).map((id) => ({ id, label: appRoleUiLabel(id) }))
 
 type Props = {
   isGm: boolean
@@ -44,7 +41,7 @@ export const OnboardingWizard = ({ isGm }: Props) => {
       await postJson({
         action: 'complete',
         displayName,
-        role: isGm ? 'director' : role
+        role: isGm ? 'manager' : role
       })
       router.replace('/')
       router.refresh()

@@ -45,7 +45,7 @@ describe('getAccessibleProjects', () => {
     ])
   })
 
-  it('loads all company projects when user has company director/as', async () => {
+  it('loads all company projects when user has company manager/as', async () => {
     hasCompanyRole.mockResolvedValue(false)
     companyMemberFindFirst.mockResolvedValue({ id: 'cm-1' })
     findMany.mockResolvedValue([{ id: 'p1', name: 'Alpha' }])

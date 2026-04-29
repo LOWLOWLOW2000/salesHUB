@@ -10,6 +10,13 @@ services:
       POSTGRES_DB: saleshub
     volumes:
       - saleshub_pg_data:/var/lib/postgresql/data
+    networks:
+      - salesHUB_pg
 
 volumes:
   saleshub_pg_data:
+
+# call_rec コンテナから参照できるよう外部公開ネットワークとして定義
+networks:
+  salesHUB_pg:
+    name: salesHUB_pg

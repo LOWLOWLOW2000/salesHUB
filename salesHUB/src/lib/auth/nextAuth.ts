@@ -1,18 +1,14 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from '@/lib/db/prisma'
 import { isEmailAllowed } from '@/lib/auth/allowedEmail'
 import { getOrCreateDefaultCompany } from '@/lib/auth/company'
 import { ensureGmRole } from '@/lib/auth/rbac'
 import { isGmEmail } from '@/lib/auth/gmEmail'
-
-const must = (value: string | undefined, name: string) => {
-  if (!value || value.trim().length === 0) {
-    throw new Error(`${name} is required — add it to .env.local (see .env.example)`)
-  }
-  return value
-}
+import { authenticateWithCredentials } from '@/lib/auth/credentialsAuth'
+import { isCredentialsAuthEnabled, isGoogleOAuthConfigured } from '@/lib/auth/authProvidersEnv'
 
 const splitScopes = (raw: string) =>
   raw
@@ -26,23 +22,57 @@ const googleScopes = () => {
   return 'openid email profile'
 }
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
+
+const providers = [
+  ...(isGoogleOAuthConfigured()
+    ? [
+        GoogleProvider({
+          clientId: googleClientId!,
+          clientSecret: googleClientSecret!,
+          authorization: {
+            params: {
+              scope: googleScopes()
+            }
+          }
+        })
+      ]
+    : []),
+  ...(isCredentialsAuthEnabled()
+    ? [
+        CredentialsProvider({
+          id: 'credentials',
+          name: 'Email and password',
+          credentials: {
+            email: { label: 'Email', type: 'email' },
+            password: { label: 'Password', type: 'password' }
+          },
+          async authorize(credentials) {
+            const email = credentials?.email?.trim().toLowerCase() ?? ''
+            const password = String(credentials?.password ?? '')
+            const user = await authenticateWithCredentials(email, password)
+            if (!user) return null
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              image: user.image
+            }
+          }
+        })
+      ]
+    : [])
+]
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'database' },
   pages: {
+    signIn: '/auth/signin',
     error: '/auth/error'
   },
-  providers: [
-    GoogleProvider({
-      clientId: must(process.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID'),
-      clientSecret: must(process.env.GOOGLE_CLIENT_SECRET, 'GOOGLE_CLIENT_SECRET'),
-      authorization: {
-        params: {
-          scope: googleScopes()
-        }
-      }
-    })
-  ],
+  providers,
   callbacks: {
     redirect: async ({ baseUrl }) => `${baseUrl}/auth/after`,
     session: async ({ session, user }) => {

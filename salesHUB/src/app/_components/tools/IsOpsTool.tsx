@@ -3,8 +3,7 @@ import { redirect } from 'next/navigation'
 import type { ProjectToolSection } from '@/lib/projectTools/toolSections'
 import { prisma } from '@/lib/db/prisma'
 import { getSession } from '@/lib/auth/session'
-import { getOrCreateDefaultCompany } from '@/lib/auth/company'
-import { hasCompanyRole } from '@/lib/auth/rbac'
+import { canConfigureProject } from '@/lib/auth/rbac'
 import { canAccessProject } from '@/lib/projects/accessibleProjects'
 import {
   deleteProjectScriptSchema,
@@ -16,18 +15,8 @@ import { ProjectScriptForm } from '@/app/_components/tools/ProjectScriptForm'
 type Props = {
   projectId: string
   section?: ProjectToolSection
-}
-
-const canEditScripts = async (userId: string, projectId: string) => {
-  const company = await getOrCreateDefaultCompany()
-  if (await hasCompanyRole(userId, company.id, 'gm')) return true
-
-  const mgmt = await prisma.projectMember.findFirst({
-    where: { userId, projectId, role: { in: ['director', 'as'] } },
-    select: { id: true }
-  })
-
-  return Boolean(mgmt)
+  /** From parent `getProjectCapabilityFlags` to avoid duplicate RBAC queries. */
+  canConfigure: boolean
 }
 
 const addProjectScript = async (formData: FormData) => {
@@ -35,10 +24,10 @@ const addProjectScript = async (formData: FormData) => {
 
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const parsed = projectScriptFormSchema.parse(Object.fromEntries(formData))
-  if (!(await canEditScripts(userId, parsed.projectId))) redirect('/')
+  if (!(await canConfigureProject(userId, parsed.projectId))) redirect('/')
 
   const last = await prisma.projectScript.findFirst({
     where: { projectId: parsed.projectId, category: parsed.category },
@@ -64,10 +53,10 @@ const deleteProjectScript = async (formData: FormData) => {
 
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const parsed = deleteProjectScriptSchema.parse(Object.fromEntries(formData))
-  if (!(await canEditScripts(userId, parsed.projectId))) redirect('/')
+  if (!(await canConfigureProject(userId, parsed.projectId))) redirect('/')
 
   await prisma.projectScript.delete({
     where: { id: parsed.scriptId }
@@ -79,13 +68,13 @@ const deleteProjectScript = async (formData: FormData) => {
 /**
  * IS運用メソッドを表示しつつ、案件固有のトーク/FAQ/切返しを編集可能にする。
  */
-export const IsOpsTool = async ({ projectId, section }: Props) => {
+export const IsOpsTool = async ({ projectId, section, canConfigure }: Props) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
   if (!(await canAccessProject(userId, projectId))) redirect('/')
 
-  const editable = await canEditScripts(userId, projectId)
+  const editable = canConfigure
   const scripts = await prisma.projectScript.findMany({
     where: { projectId },
     orderBy: [{ category: 'asc' }, { seq: 'asc' }, { createdAt: 'asc' }]
@@ -98,6 +87,11 @@ export const IsOpsTool = async ({ projectId, section }: Props) => {
         <p className="mt-1 text-sm text-zinc-600">
           標準メソッドを土台に、案件固有のトーク・FAQ・NG切返しをナレッジ化します。
         </p>
+        {!editable ? (
+          <p id="is-ops-readonly-hint" className="mt-2 text-sm text-zinc-600">
+            スクリプトの追加・削除は GM またはこの案件の Director / AS に限られます。登録済みの内容は閲覧できます。
+          </p>
+        ) : null}
       </header>
 
       {section ? (

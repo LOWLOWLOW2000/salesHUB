@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth/session'
-import { canAccessProject } from '@/lib/projects/accessibleProjects'
+import { canOperateProject } from '@/lib/auth/rbac'
 import { createZoomDialSession } from '@/lib/zoom/zoomServer'
 
 const bodySchema = z.object({
@@ -17,7 +17,7 @@ export const POST = async (req: Request) => {
   const parsed = bodySchema.safeParse(json)
   if (!parsed.success) return NextResponse.json({ error: 'bad_request' }, { status: 400 })
 
-  if (!(await canAccessProject(userId, parsed.data.projectId))) {
+  if (!(await canOperateProject(userId, parsed.data.projectId))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

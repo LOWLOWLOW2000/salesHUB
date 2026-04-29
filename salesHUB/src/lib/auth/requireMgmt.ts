@@ -4,12 +4,12 @@ import { getOrCreateDefaultCompany } from '@/lib/auth/company'
 import { hasCompanyMgmtRole, hasCompanyRole, hasProjectMgmtRole } from '@/lib/auth/rbac'
 
 /**
- * Company-level management (gm | director | as on CompanyMember).
+ * Company-level management (gm | manager | as on CompanyMember).
  */
 export const requireCompanyMgmt = async () => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const company = await getOrCreateDefaultCompany()
   const ok = await hasCompanyMgmtRole(userId, company.id)
@@ -24,7 +24,7 @@ export const requireCompanyMgmt = async () => {
 export const requireProjectMgmt = async (projectId: string) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const company = await getOrCreateDefaultCompany()
   const isGm = await hasCompanyRole(userId, company.id, 'gm')

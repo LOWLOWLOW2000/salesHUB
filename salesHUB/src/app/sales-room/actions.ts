@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
-import { canAccessProject } from '@/lib/projects/accessibleProjects'
+import { canOperateProject } from '@/lib/auth/rbac'
 import { isCallingResult } from '@/lib/calling/callResults'
 
 const excludedListStatuses = new Set(['番号違い', 'クレーム'])
@@ -14,7 +14,7 @@ const excludedListStatuses = new Set(['番号違い', 'クレーム'])
 export const saveCallLogAction = async (formData: FormData) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const projectId = String(formData.get('projectId') ?? '')
   const masterListItemId = String(formData.get('masterListItemId') ?? '').trim()
@@ -22,7 +22,7 @@ export const saveCallLogAction = async (formData: FormData) => {
   const memo = String(formData.get('memo') ?? '').trim()
 
   if (projectId.length === 0 || masterListItemId.length === 0) return
-  if (!(await canAccessProject(userId, projectId))) redirect('/')
+  if (!(await canOperateProject(userId, projectId))) redirect('/')
   if (!isCallingResult(result)) return
 
   const item = await prisma.masterListItem.findUnique({

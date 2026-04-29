@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 import { AppShell } from '@/app/_components/AppShell'
 import { ProjectToolWorkspace } from '@/app/_components/ProjectToolWorkspace'
 import { normalizeProjectToolId } from '@/lib/projectTools/toolSections'
+import { getProjectCapabilityFlags } from '@/lib/auth/projectCapabilities'
 import { canAccessProject, getAccessibleProjects } from '@/lib/projects/accessibleProjects'
 
 type Props = {
@@ -19,7 +20,7 @@ export default async function ProjectDashboardPage({ params, searchParams }: Pro
   const session = await getSession()
   const userId = session?.user?.id
 
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -38,14 +39,17 @@ export default async function ProjectDashboardPage({ params, searchParams }: Pro
 
   if (!project) redirect('/')
 
-  const projects = await getAccessibleProjects(userId)
+  const [projects, capabilities] = await Promise.all([
+    getAccessibleProjects(userId),
+    getProjectCapabilityFlags(userId, projectId)
+  ])
 
   return (
     <AppShell title={project.name} subtitle="プロジェクト実行ツール（左から機能を育てます）" projects={projects}>
       <Suspense
         fallback={<p className="text-sm text-zinc-600">実行ツールを読み込み中です…</p>}
       >
-        <ProjectToolWorkspace projectId={projectId} activeId={activeTool} />
+        <ProjectToolWorkspace projectId={projectId} activeId={activeTool} capabilities={capabilities} />
       </Suspense>
     </AppShell>
   )

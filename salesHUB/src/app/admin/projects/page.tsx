@@ -92,7 +92,7 @@ export default async function ProjectsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-sm text-zinc-700">案件と D / AS / IS / FS / CS 割当</p>
+          <p className="text-sm text-zinc-700">案件と Director・AS・IS・FS・CS の割当</p>
         </div>
         <Link className="text-sm text-zinc-700 hover:text-zinc-950" href="/admin">
           ← Admin

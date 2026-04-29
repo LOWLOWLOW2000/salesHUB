@@ -21,10 +21,10 @@ export default async function Home() {
 
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/api/auth/signin"
+            href="/auth/signin"
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
           >
-            Googleでログイン
+            ログイン
           </Link>
           <Link
             href="/admin"

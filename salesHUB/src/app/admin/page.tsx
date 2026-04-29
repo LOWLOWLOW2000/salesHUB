@@ -43,7 +43,7 @@ export default async function AdminPage() {
           className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow"
         >
           <div className="text-sm font-semibold">Company roles</div>
-          <div className="mt-2 text-sm leading-6 text-zinc-600">会社スコープの director / AS など</div>
+          <div className="mt-2 text-sm leading-6 text-zinc-600">会社スコープ（manager / as / メンバー；案件 Director は Projects）</div>
         </Link>
 
         <Link

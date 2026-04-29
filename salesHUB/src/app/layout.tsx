@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
 import './globals.css'
 import { appConfig } from '@/lib/appConfig'
+import { AuthSessionProvider } from '@/app/_components/AuthSessionProvider'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className={`${geistSans.className} flex min-h-full flex-col bg-zinc-50 text-zinc-950`}>
+        <AuthSessionProvider>
         <header className="sticky top-0 z-20 border-b border-zinc-200/70 bg-white/80 backdrop-blur">
           <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
             <Link href="/" className="font-semibold tracking-tight">
@@ -42,7 +44,7 @@ export default function RootLayout({
               <Link className="hover:text-zinc-950" href="/admin">
                 Admin
               </Link>
-              <Link className="hover:text-zinc-950" href="/api/auth/signin">
+              <Link className="hover:text-zinc-950" href="/auth/signin">
                 Sign in
               </Link>
             </nav>
@@ -54,6 +56,7 @@ export default function RootLayout({
         <footer className="border-t border-zinc-200/70 bg-white">
           <div className="mx-auto w-full px-4 py-6 text-xs text-zinc-600 sm:px-6 lg:px-8">{appConfig.name}</div>
         </footer>
+        </AuthSessionProvider>
       </body>
     </html>
   )

@@ -9,7 +9,7 @@ import type { AppRole } from '@prisma/client'
 const bodySchema = z.object({
   action: z.literal('complete'),
   displayName: z.string().trim().min(1),
-  role: z.enum(['director', 'as', 'is', 'fs', 'cs'])
+  role: z.enum(['manager', 'as', 'is', 'fs', 'cs'])
 })
 
 export const POST = async (req: Request) => {

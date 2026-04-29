@@ -6,6 +6,8 @@ type Props = {
   action: (formData: FormData) => Promise<void>
   projectId: string
   defaultValues: DailyReportInput
+  /** When true, fields and submit are disabled (view-only tier). */
+  readOnly?: boolean
 }
 
 const numberFields = [
@@ -22,11 +24,18 @@ const numberFields = [
 /**
  * 日報入力フォーム。Server Action に送るだけの薄い Client Component。
  */
-export const DailyReportForm = ({ action, projectId, defaultValues }: Props) => {
+export const DailyReportForm = ({ action, projectId, defaultValues, readOnly = false }: Props) => {
   return (
     <form action={action} className="space-y-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
       <input type="hidden" name="projectId" value={projectId} />
 
+      {readOnly ? (
+        <p id="daily-report-readonly-reason" className="text-sm text-zinc-600">
+          この案件では閲覧のみのため、日報を保存できません。プロジェクトメンバーに追加してもらってください。
+        </p>
+      ) : null}
+
+      <fieldset disabled={readOnly} className="min-w-0 space-y-5 border-0 p-0 disabled:opacity-60">
       <div className="grid gap-4 md:grid-cols-3">
         <label className="space-y-1 text-sm">
           <span className="font-medium text-zinc-800">日付</span>
@@ -113,10 +122,12 @@ export const DailyReportForm = ({ action, projectId, defaultValues }: Props) => 
 
       <button
         type="submit"
-        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+        aria-describedby={readOnly ? 'daily-report-readonly-reason' : undefined}
+        className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
         日報を保存
       </button>
+      </fieldset>
     </form>
   )
 }

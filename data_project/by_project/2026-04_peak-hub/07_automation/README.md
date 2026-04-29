@@ -16,7 +16,7 @@ cp .env.example .env
 | スクリプト | 用途 |
 |---|---|
 | `src/generate_intake_csv.py` | PJシート投入用CSV生成 |
-| `src/zoom_recording_downloader.py` | Zoom Phone 録音一括ダウンロード |
+| `src/zoom_recording_downloader.py` | Zoom Phone 録音一括ダウンロード（**正本は `call_rec/scripts/zoom_recording_downloader.py` に移設**。UI コンソールは `call_rec` で `npm run web`） |
 
 ---
 

@@ -30,7 +30,8 @@ const resolveColumnIndices = (headers: string[]) => {
     phoneIdx: find(['phone', 'tel', 'phonenumber', '電話番号'], 1),
     addressIdx: find(['address', '住所'], 2),
     urlIdx: find(['url', 'website', 'targeturl', '企業url', 'hp'], 3),
-    industryIdx: find(['industry', 'industrytag', '業種'], 4)
+    industryIdx: find(['industry', 'industrytag', '業種', '事業タグ'], 4),
+    leadIdIdx: find(['lead_id', 'leadid'], -1)
   }
 }
 
@@ -150,6 +151,7 @@ export const POST = async (req: Request) => {
     const nameNorm = normalizeCompanyName(companyName)
     const phoneNorm = normalizePhone(phone)
     const clientRowId = createClientRowId(nameNorm, phoneNorm)
+    const leadId = cols.leadIdIdx >= 0 ? (row[cols.leadIdIdx] ?? '').trim() || undefined : undefined
 
     const account = await prisma.salesAccount.upsert({
       where: { companyId_clientRowId: { companyId: company.id, clientRowId } },
@@ -159,13 +161,15 @@ export const POST = async (req: Request) => {
         nameNorm,
         phoneNorm,
         clientRowId,
+        leadId,
         headOfficeAddress: address,
         domain: domainFromUrl(targetUrl) || undefined
       },
       update: {
         displayName: companyName,
         headOfficeAddress: address,
-        domain: domainFromUrl(targetUrl) || undefined
+        domain: domainFromUrl(targetUrl) || undefined,
+        ...(leadId !== undefined && { leadId })
       },
       select: { id: true }
     })

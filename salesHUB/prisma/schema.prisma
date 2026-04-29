@@ -7,9 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Company + project membership role (DB value = English short code).
+/// Tiers: `gm` → `manager`（会社）→ `director`（案件）→ `is`|`fs`|`cs`（メンバー）。`as` は獲得営業（将来・獲得案件は director 同権を想定）。
 enum AppRole {
+  /// General Manager — 企業管理者。全ティア相当の操作、Manager 以下の任命、案件アサイン/除名。
   gm
+  /// Manager — 全 PJ 閲覧（閲覧〜変更境界は別途強化）、Director 以下を任命。
+  manager
+  /// Director — 任命された PJ の管理（起案・メンバー招待などは ProjectMember で表現）。
   director
+  /// Account Success — 獲得営業（計画: 獲得案件は director と同権の PJ 権限）。
   as
   is
   fs
@@ -72,14 +79,14 @@ enum CallTranscriptFormat {
 }
 
 model AllowedEmail {
-  id        String   @id
+  id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Company {
-  id        String   @id
+  id        String   @id @default(cuid())
   name      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,10 +117,12 @@ model Division {
 }
 
 model Project {
-  id         String   @id
+  id         String   @id @default(cuid())
   companyId  String
   divisionId String?
   name       String
+  /** フォルダ名・エクスポートファイル名に使う人間可読スラッグ（例: 2026-04_peak-hub） */
+  slug       String?  @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -135,13 +144,16 @@ model Project {
 }
 
 model SalesAccount {
-  id               String   @id
+  id               String   @id @default(cuid())
   companyId         String
   corporateNumber   String?
   displayName       String
   nameNorm          String
   phoneNorm         String
+  /** 内部重複排除キー: cr_ + SHA1(nameNorm|phoneNorm) の先頭16文字 */
   clientRowId       String
+  /** PJシートの lead_id（例: PEAK-000001）。CSV投入時に付番した外部識別子 */
+  leadId            String?
   domain            String?
   headOfficeAddress String?
   createdAt         DateTime @default(now())
@@ -155,6 +167,7 @@ model SalesAccount {
 
   @@index([companyId])
   @@index([corporateNumber])
+  @@index([companyId, leadId])
   @@unique([companyId, clientRowId])
 }
 
@@ -176,7 +189,7 @@ model SalesContact {
 }
 
 model MasterList {
-  id                  String       @id
+  id                  String       @id @default(cuid())
   companyId            String
   name                String
   ownerUserId          String
@@ -197,7 +210,7 @@ model MasterList {
 }
 
 model MasterListItem {
-  id           String             @id
+  id           String             @id @default(cuid())
   masterListId String
   accountId    String
   companyName  String
@@ -218,7 +231,7 @@ model MasterListItem {
 }
 
 model CallLog {
-  id             String   @id
+  id             String   @id @default(cuid())
   projectId      String
   userId         String
   accountId      String
@@ -286,7 +299,7 @@ model CallRecording {
 }
 
 model MaterialAsset {
-  id          String   @id
+  id          String   @id @default(cuid())
   companyId   String
   name        String
   description String   @default("")
@@ -301,7 +314,7 @@ model MaterialAsset {
 }
 
 model MaterialSendLog {
-  id        String         @id
+  id        String         @id @default(cuid())
   accountId String
   contactId String?
   userId    String
@@ -330,7 +343,7 @@ model CallingSettings {
 }
 
 model DailyReport {
-  id                  String   @id
+  id                  String   @id @default(cuid())
   projectId            String
   userId               String
   date                 DateTime
@@ -359,7 +372,7 @@ model DailyReport {
 }
 
 model ProjectScript {
-  id        String   @id
+  id        String   @id @default(cuid())
   projectId String
   category  String
   seq       Int
@@ -375,7 +388,7 @@ model ProjectScript {
 }
 
 model DealStage {
-  id              String   @id
+  id              String   @id @default(cuid())
   projectId       String
   accountName     String
   contactName     String   @default("")
@@ -397,7 +410,7 @@ model DealStage {
 }
 
 model AiSuggestion {
-  id            String   @id
+  id            String   @id @default(cuid())
   projectId     String
   periodStart   DateTime
   periodEnd     DateTime
@@ -459,6 +472,8 @@ model User {
   id                    String   @id
   name                  String?
   email                 String?  @unique
+  /** Local login only; OAuth-only users leave null. */
+  passwordHash          String?
   emailVerified         DateTime?
   image                 String?
   onboardingCompletedAt DateTime?
@@ -476,7 +491,7 @@ model User {
 }
 
 model CompanyMember {
-  id        String   @id
+  id        String   @id @default(cuid())
   companyId String
   userId    String
   role      AppRole
@@ -492,7 +507,7 @@ model CompanyMember {
 }
 
 model ProjectMember {
-  id        String   @id
+  id        String   @id @default(cuid())
   projectId String
   userId    String
   role      AppRole

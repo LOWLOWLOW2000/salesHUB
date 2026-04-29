@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect, notFound } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
+import { getProjectCapabilityFlags } from '@/lib/auth/projectCapabilities'
 import { canAccessProject } from '@/lib/projects/accessibleProjects'
 import { AppShell } from '@/app/_components/AppShell'
 import { getAccessibleProjects } from '@/lib/projects/accessibleProjects'
@@ -20,7 +21,7 @@ export default async function SalesRoomPage({ params, searchParams }: Props) {
 
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   if (!(await canAccessProject(userId, projectId))) redirect('/')
 
@@ -59,7 +60,10 @@ export default async function SalesRoomPage({ params, searchParams }: Props) {
     }
   })
 
-  const projects = await getAccessibleProjects(userId)
+  const [projects, { canOperate }] = await Promise.all([
+    getAccessibleProjects(userId),
+    getProjectCapabilityFlags(userId, projectId)
+  ])
 
   return (
     <AppShell title={`架電: ${project.name}`} subtitle={`listId=${list.id}`} projects={projects}>
@@ -71,7 +75,7 @@ export default async function SalesRoomPage({ params, searchParams }: Props) {
           Master list 詳細
         </Link>
       </div>
-      <SalesRoomClient projectId={projectId} listId={list.id} rows={items} />
+      <SalesRoomClient projectId={projectId} listId={list.id} rows={items} canOperate={canOperate} />
     </AppShell>
   )
 }

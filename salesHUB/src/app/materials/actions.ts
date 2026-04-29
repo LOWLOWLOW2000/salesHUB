@@ -13,7 +13,7 @@ import { hasCompanyRole } from '@/lib/auth/rbac'
 export const addMaterialAsset = async (formData: FormData) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const company = await getOrCreateDefaultCompany()
   if (!(await hasCompanyRole(userId, company.id, 'gm'))) redirect('/')

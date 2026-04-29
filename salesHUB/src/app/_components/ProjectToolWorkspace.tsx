@@ -4,6 +4,7 @@ import {
   projectToolNavItems,
   type ProjectToolId
 } from '@/lib/projectTools/toolSections'
+import type { ProjectCapabilityFlags } from '@/lib/auth/projectCapabilities'
 import { DailyReportTool } from '@/app/_components/tools/DailyReportTool'
 import { IsOpsTool } from '@/app/_components/tools/IsOpsTool'
 import { KpiDashboardTool } from '@/app/_components/tools/KpiDashboardTool'
@@ -11,12 +12,13 @@ import { KpiDashboardTool } from '@/app/_components/tools/KpiDashboardTool'
 type Props = {
   projectId: string
   activeId: ProjectToolId
+  capabilities: ProjectCapabilityFlags
 }
 
 /**
  * プロジェクト配下の「実行ツール」: 左ナビ + クエリ `tool` で本文切替。
  */
-export const ProjectToolWorkspace = ({ projectId, activeId }: Props) => {
+export const ProjectToolWorkspace = ({ projectId, activeId, capabilities }: Props) => {
   const section = getProjectToolSection(activeId)
 
   const hrefFor = (id: ProjectToolId) =>
@@ -57,9 +59,30 @@ export const ProjectToolWorkspace = ({ projectId, activeId }: Props) => {
       </nav>
 
       <article className="min-w-0 flex-1 space-y-5">
-        {activeId === 'daily-report' ? <DailyReportTool projectId={projectId} /> : null}
+        {!capabilities.canOperate ? (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          >
+            <span className="font-medium">閲覧のみ</span>
+            <span className="mt-1 block text-amber-900/90">
+              架電記帳・日報の保存・Zoom 会議開始には、この案件のプロジェクトメンバーへの参加が必要です。KPI の閲覧や AI
+              改善案の保存は引き続き利用できます。
+            </span>
+          </div>
+        ) : null}
+
+        {activeId === 'daily-report' ? (
+          <DailyReportTool
+            projectId={projectId}
+            canOperate={capabilities.canOperate}
+            canConfigure={capabilities.canConfigure}
+          />
+        ) : null}
         {activeId === 'kpi-dashboard' ? <KpiDashboardTool projectId={projectId} /> : null}
-        {activeId === 'is-ops' ? <IsOpsTool projectId={projectId} section={section} /> : null}
+        {activeId === 'is-ops' ? (
+          <IsOpsTool projectId={projectId} section={section} canConfigure={capabilities.canConfigure} />
+        ) : null}
 
         {activeId !== 'daily-report' && activeId !== 'kpi-dashboard' && activeId !== 'is-ops' && section ? (
           <>

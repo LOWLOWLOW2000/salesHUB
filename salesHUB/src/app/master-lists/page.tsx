@@ -57,7 +57,7 @@ const fetchListsWithItems = async (companyId: string) => {
 
 export default async function MasterListsPage() {
   const session = await getSession()
-  if (!session?.user?.id) redirect('/api/auth/signin')
+  if (!session?.user?.id) redirect('/auth/signin')
 
   const company = await getOrCreateDefaultCompany()
   const allLists = await fetchListsWithItems(company.id)

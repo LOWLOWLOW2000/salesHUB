@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { getSession } from '@/lib/auth/session'
-import { canAccessProject } from '@/lib/projects/accessibleProjects'
+import { canViewProject } from '@/lib/projects/accessibleProjects'
 import {
   buildKpiMetrics,
   countTokens,
@@ -27,15 +27,16 @@ const addDays = (date: Date, days: number) => {
   return next
 }
 
+/** KPI の AI 提案保存: 閲覧できるユーザーなら誰でも（canViewProject と同ティア）。 */
 const generateImprovementSuggestion = async (formData: FormData) => {
   'use server'
 
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const projectId = String(formData.get('projectId') ?? '')
-  if (!(await canAccessProject(userId, projectId))) redirect('/')
+  if (!(await canViewProject(userId, projectId))) redirect('/')
 
   const periodEnd = startOfDayUtc(new Date())
   const periodStart = addDays(periodEnd, -27)
@@ -92,7 +93,7 @@ const MetricCard = ({ label, value, sub }: { label: string; value: string; sub: 
 export const KpiDashboardTool = async ({ projectId }: Props) => {
   const session = await getSession()
   const userId = session?.user?.id
-  if (!userId) redirect('/api/auth/signin')
+  if (!userId) redirect('/auth/signin')
 
   const periodEnd = startOfDayUtc(new Date())
   const periodStart = addDays(periodEnd, -27)

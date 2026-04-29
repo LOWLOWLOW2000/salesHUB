@@ -16,6 +16,8 @@ type Props = {
   projectId: string
   listId: string
   rows: SalesRoomRow[]
+  /** When false, Zoom / 記帳フォームは無効（閲覧・リスト操作のみ）。 */
+  canOperate: boolean
 }
 
 const sortRows = (rows: SalesRoomRow[]) =>
@@ -32,7 +34,7 @@ const iframeSrc = (url: string) => {
 /**
  * Efficient calling workspace: list row, company site iframe, result form.
  */
-export const SalesRoomClient = ({ projectId, listId, rows }: Props) => {
+export const SalesRoomClient = ({ projectId, listId, rows, canOperate }: Props) => {
   const sorted = useMemo(() => sortRows(rows), [rows])
   const [index, setIndex] = useState(0)
   const current = sorted[index] ?? null
@@ -66,6 +68,18 @@ export const SalesRoomClient = ({ projectId, listId, rows }: Props) => {
 
   return (
     <div className="grid gap-4 lg:grid-cols-12">
+      {!canOperate ? (
+        <div
+          role="status"
+          className="lg:col-span-12 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          <span className="font-medium">閲覧のみ</span>
+          <span id="sales-room-readonly-reason" className="mt-1 block text-amber-900/90">
+            架電記帳・Zoom 会議開始には、この案件のプロジェクトメンバーへの参加が必要です。
+          </span>
+        </div>
+      ) : null}
+
       <aside className="lg:col-span-3">
         <div className="rounded-xl border border-zinc-200 bg-white p-3 text-sm">
           <div className="text-xs font-semibold text-zinc-500">List</div>
@@ -95,8 +109,10 @@ export const SalesRoomClient = ({ projectId, listId, rows }: Props) => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            disabled={!canOperate}
+            aria-describedby={!canOperate ? 'sales-room-readonly-reason' : undefined}
             onClick={() => void openZoom()}
-            className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800"
+            className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Zoom 会議を開く
           </button>
@@ -123,37 +139,40 @@ export const SalesRoomClient = ({ projectId, listId, rows }: Props) => {
         >
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="masterListItemId" value={current.id} />
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-800">結果</span>
-            <select
-              key={`${current.id}-result`}
-              name="result"
-              defaultValue={CALLING_RESULT_VALUES[0]}
-              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2"
+          <fieldset disabled={!canOperate} className="min-w-0 space-y-3 border-0 p-0 disabled:opacity-60">
+            <label className="block text-sm">
+              <span className="font-medium text-zinc-800">結果</span>
+              <select
+                key={`${current.id}-result`}
+                name="result"
+                defaultValue={CALLING_RESULT_VALUES[0]}
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2"
+              >
+                {CALLING_RESULT_VALUES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-zinc-800">メモ</span>
+              <textarea
+                key={`${current.id}-memo`}
+                name="memo"
+                rows={4}
+                defaultValue=""
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              aria-describedby={!canOperate ? 'sales-room-readonly-reason' : undefined}
+              className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {CALLING_RESULT_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium text-zinc-800">メモ</span>
-            <textarea
-              key={`${current.id}-memo`}
-              name="memo"
-              rows={4}
-              defaultValue=""
-              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2"
-            />
-          </label>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-          >
-            記帳して次へ
-          </button>
+              記帳して次へ
+            </button>
+          </fieldset>
         </form>
 
         <a
