@@ -1,0 +1,177 @@
+# response_templates.yaml
+# テンプレ辞書 — response_builder.py がロードする設定
+# 仕様: intent-improvement-spec.md §3 および §3.1
+#
+# 構造:
+#   <template_id>:
+#     base: "..."         # 基本文
+#     variants:           # 語尾ローテーション（AI モードで均等ローテーション）
+#       - suffix: "..."   # 末尾の置換テキスト
+#         id: "A"|"B"|"C"  # バリアント識別子
+#
+# 注: 全テンプレは必ず行動要求（疑問形 or 依頼形）で終わること — spec §3 末注
+
+RT_ASK_TRANSFER_SHORT:
+  base: "ありがとうございます、採用の件で一点だけ確認でして"
+  variants:
+    - suffix: "、ご担当の方にお繋ぎいただけますか"
+      id: "A"
+    - suffix: "、ご担当の方にお繋ぎお願いできますか"
+      id: "B"
+    - suffix: "、ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_PURPOSE_SHORT:
+  base: "採用の件で、現状の確認だけでして"
+  variants:
+    - suffix: "、ご担当の方に一度お繋ぎいただけますか"
+      id: "A"
+    - suffix: "、ご担当の方に一度お繋ぎお願いできますか"
+      id: "B"
+    - suffix: "、ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_PURPOSE_DETAILED:
+  base: "採用のチャネルの使い分けについて、現状だけ一度お伺いできればと思ってまして"
+  variants:
+    - suffix: "、ご担当の方にお繋ぎいただけますか"
+      id: "A"
+    - suffix: "、ご担当の方にお繋ぎお願いできますか"
+      id: "B"
+    - suffix: "、ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_REBUTTAL_BY_C_TYPE:
+  # このテンプレID はルーティング用。実際の文は C 系の L2 に応じて分岐
+  # response_builder が intent_id を見て RT_REBUTTAL_C1/C2/C3 を選ぶ
+  base: ""
+  variants: []
+
+RT_REBUTTAL_C1:
+  base: "そうですよね、ご案内ではなく現状の確認だけでして"
+  variants:
+    - suffix: "、ご担当の方に一言だけでも可能でしょうか"
+      id: "A"
+    - suffix: "、ご担当の方に少しだけお時間いただけますか"
+      id: "B"
+    - suffix: "、ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_REBUTTAL_C2:
+  base: "承知しました、ご状況の確認だけでもと思ってまして"
+  variants:
+    - suffix: "、ご担当の方に一度だけお繋ぎいただけますか"
+      id: "A"
+    - suffix: "、ご担当の方に一度だけお繋ぎお願いできますか"
+      id: "B"
+    - suffix: "、ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_REBUTTAL_C3:
+  base: "承知しました、ご担当の方にご迷惑をおかけしないよう、現状確認だけお伝えできればと思ってまして"
+  variants:
+    - suffix: "、お名前だけお伺いしてもよろしいでしょうか"
+      id: "A"
+    - suffix: "、ご担当の方のお名前をお聞きしてもよろしいですか"
+      id: "B"
+    - suffix: "、どちらの担当部署になりますでしょうか"
+      id: "C"
+
+RT_THANKS_AND_TRANSFER:
+  base: "ありがとうございます"
+  variants:
+    - suffix: "、お手数おかけします"
+      id: "A"
+    - suffix: "、よろしくお願いいたします"
+      id: "B"
+    - suffix: "、よろしくお願いします"
+      id: "C"
+
+RT_THANKS_QUIET:
+  # 保留受領の無言系。行動要求バリデーション対象外（spec §3 注: 無言・承諾は例外）
+  validate: false
+  base: "ありがとうございます"
+  variants:
+    - suffix: ""
+      id: "A"
+    - suffix: "、かしこまりました"
+      id: "B"
+    - suffix: "、承知いたしました"
+      id: "C"
+
+RT_NAME_AND_PURPOSE:
+  base: "PeakHub の◯◯と申します、採用の件で一点確認でお電話しております"
+  variants:
+    - suffix: ""
+      id: "A"
+    - suffix: "、よろしくお願いいたします"
+      id: "B"
+    - suffix: "、お世話になっております"
+      id: "C"
+
+RT_ASK_CALLBACK_SLOT:
+  base: "かしこまりました"
+  variants:
+    - suffix: "、明日か明後日でご在席のタイミングございますか"
+      id: "A"
+    - suffix: "、改めてお電話してもよろしいでしょうか"
+      id: "B"
+    - suffix: "、折り返しのご都合を伺えますか"
+      id: "C"
+
+RT_CONFIRM_SCHEDULE:
+  base: "ありがとうございます"
+  variants:
+    - suffix: "、ではそのお時間に改めてお電話いたします"
+      id: "A"
+    - suffix: "、そのお時間にお電話させていただきます"
+      id: "B"
+    - suffix: "、それでは改めてご連絡いたします"
+      id: "C"
+
+RT_RETRY_PROMPT:
+  base: "恐れ入ります、採用の件で"
+  variants:
+    - suffix: "ご担当の方にお繋ぎいただけますか"
+      id: "A"
+    - suffix: "ご担当の方にお繋ぎお願いできますか"
+      id: "B"
+    - suffix: "ご担当の方いらっしゃいますか"
+      id: "C"
+
+RT_POLITE_CLOSE:
+  base: "かしこまりました"
+  variants:
+    - suffix: "。失礼いたしました"
+      id: "A"
+    - suffix: "。ありがとうございました"
+      id: "B"
+    - suffix: "。またの機会にお願いいたします"
+      id: "C"
+
+# ── バリデーション設定 ──────────────────────────────────────────────────────
+validation:
+  # 行動要求チェック: 完成文がこれらのいずれかで終わらなければ reject
+  action_request_suffixes:
+    - "ますか"
+    - "でしょうか"
+    - "ませんか"
+    - "ください"
+    - "いただけますか"
+    - "お願いできますか"
+    - "いらっしゃいますか"
+    - "よろしいでしょうか"
+    - "よろしいですか"
+    - "よろしいですか"
+    - "いただきます"
+    - "いたします"
+    - "おります"
+    - "いただきました"
+    - "失礼いたしました"
+    - "ありがとうございました"
+    - "お願いいたします"
+    - "お願いします"
+    - "ご連絡いたします"
+    - "おかけします"
+    - "かしこまりました"
+    - "いたしました"

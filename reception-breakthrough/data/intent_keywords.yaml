@@ -1,0 +1,176 @@
+# intent_keywords.yaml
+# キーワード辞書 — intent_classifier.py がロードするルールベース設定
+# 変更は PR + 変更理由のメモを必須とする（仕様書 §7, rule 4）
+#
+# 構造:
+#   <intent_id>:
+#     keywords: [...]      # いずれか 1 語が発話に含まれていれば候補
+#     require_all: false   # true の場合はすべてのキーワードが必要
+#     exclude_if_question: false  # true の場合、疑問形なら除外
+#     confidence_base: 0.0..1.0  # キーワードのみで命中したときの基礎確信度
+
+# ── A 系 ────────────────────────────────────────────────────────────────────
+A1_listening:
+  keywords:
+    - "はい"
+    - "少々お待ち"
+    - "お待ちください"
+  exclude_if_question: false
+  confidence_base: 0.65
+
+# ── B 系 ────────────────────────────────────────────────────────────────────
+B1_simple_purpose:
+  keywords:
+    - "ご用件"
+    - "用件"
+    - "どのようなご用件"
+    - "どういったご用件"
+    - "どんなご用件"
+  exclude_if_question: false
+  confidence_base: 0.75
+
+B2_detailed_purpose:
+  keywords:
+    - "具体的には"
+    - "どの部署"
+    - "どちらの部署"
+    - "何の件"
+    - "どのような件"
+  exclude_if_question: false
+  confidence_base: 0.75
+
+# ── C 系 ────────────────────────────────────────────────────────────────────
+# C1: 明確否定語
+C1_hard_reject:
+  keywords:
+    - "お断り"
+    - "断って"
+    - "必要ありません"
+    - "必要ございません"
+    - "いりません"
+    - "要りません"
+    - "けっこうです"
+    - "結構です"
+  exclude_if_question: false
+  confidence_base: 0.85
+
+# C2: 婉曲拒否キーワード（疑問形の場合は除外 — spec §4.1）
+C2_soft_reject:
+  keywords:
+    - "間に合って"
+    - "大丈夫です"
+    - "今は必要"
+    - "今のところ"
+    - "特にございません"
+    - "特に必要"
+    - "そういうのは"
+    - "お気持ちだけ"
+  exclude_if_question: true
+  confidence_base: 0.72
+
+# C2 追加: 理由後置パターン（〜ので / 〜ですから）は sentence_pattern 判定で加点
+C2_reason_suffix_patterns:
+  - "ので$"
+  - "ですから$"
+  - "ですので$"
+  - "もので$"
+
+# C3: 受付ポリシー表明
+C3_policy_block:
+  keywords:
+    - "お繋ぎしていません"
+    - "お繋ぎできません"
+    - "ご案内は受けておりません"
+    - "ご案内は承っておりません"
+    - "そういった電話は"
+    - "そういったお電話は"
+    - "お取り次ぎしておりません"
+  exclude_if_question: false
+  confidence_base: 0.88
+
+# ── D 系 ────────────────────────────────────────────────────────────────────
+D1_hold:
+  keywords:
+    - "少々お待ち"
+    - "少しお待ち"
+    - "お待ちいただけ"
+    - "お待ちください"
+  exclude_if_question: false
+  confidence_base: 0.80
+
+D2_internal_check:
+  keywords:
+    - "確認します"
+    - "確認いたします"
+    - "確認してみます"
+    - "聞いてみます"
+    - "伝えます"
+    - "伝えてみます"
+  exclude_if_question: false
+  confidence_base: 0.78
+
+D3_name_request:
+  keywords:
+    - "どちら様"
+    - "お名前"
+    - "お名前は"
+    - "会社名"
+    - "社名"
+  exclude_if_question: false
+  confidence_base: 0.82
+
+# ── E 系 ────────────────────────────────────────────────────────────────────
+E1_absent:
+  keywords:
+    - "席を外"
+    - "席を離れ"
+    - "不在"
+    - "本日不在"
+    - "外出中"
+    - "外出しております"
+    - "出張"
+    - "お休み"
+  exclude_if_question: false
+  confidence_base: 0.80
+
+E2_busy:
+  keywords:
+    - "今対応"
+    - "ただいま対応"
+    - "立て込んで"
+    - "手が離せ"
+    - "接客中"
+    - "商談中"
+  exclude_if_question: false
+  confidence_base: 0.78
+
+E3_schedule:
+  keywords:
+    - "何時頃"
+    - "何時ごろ"
+    - "午前なら"
+    - "午後なら"
+    - "明日なら"
+    - "明後日なら"
+    - "来週なら"
+    - "折り返し"
+  exclude_if_question: false
+  confidence_base: 0.75
+
+# ── F 系（ルールベースでは直接分類せず，SM 側で扱う） ─────────────────────
+# F1/F2/F3 はテキスト分類の対象外。confidence が閾値未満のときに SM が F1 にする。
+# F3_disconnect は回線イベントで検知する。
+
+# ── 調整パラメータ ───────────────────────────────────────────────────────
+thresholds:
+  # この値未満の confidence は F1_unclear として SM に渡す
+  f1_fallback: 0.60
+  # 疑問符検出用（末尾にこれらがあれば "疑問形" と判断）
+  question_marks:
+    - "？"
+    - "?"
+    - "か？"
+    - "か?"
+    - "でしょうか"
+    - "ますか"
+    - "ませんか"
