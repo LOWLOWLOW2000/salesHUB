@@ -35,10 +35,6 @@ pnpm-debug.log*
 .secrets/
 
 # Zoom recordings & data project raw files
-data_project/**/zoom_recordings/
-data_project/**/.venv/
-data_project/**/zoom_auth.json
-data_project/**/zoom_storage_state.json
 **/zoom_auth.json
 **/zoom_storage_state.json
 *.mp3
@@ -72,11 +68,17 @@ desktop.ini
 **/.ai/history.jsonl
 **/.ai/rules.pending.md
 
+# Python bytecode
+**/__pycache__/
+*.py[cod]
+
 # Local working directories
 .venv/
 .venv-xlsx/
-IS_01_hangar/
+PJ_asset_Data/
 call_rec/
-IS_01_hangar
+PJ_asset_Data
+project_hangarr/
+project_hangarr
 .ai
 
