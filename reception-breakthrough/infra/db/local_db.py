@@ -49,6 +49,35 @@ def _configure(conn: sqlite3.Connection) -> None:
     conn.row_factory = sqlite3.Row
 
 
+def open_persistent_connection(
+    db_path: str | Path = "data/calls.db",
+) -> sqlite3.Connection:
+    """Migration 適用済みの永続接続を返す（呼び出し側が `conn.close()` を担当する）。
+
+    API サーバーやワーカーのように、接続を 1 リクエストを超えて保持したい場合に使う。
+    通常のコードでは :func:`get_connection` のコンテキストマネージャーを使うこと。
+
+    Args:
+        db_path: SQLite DB のパス。
+
+    Returns:
+        設定済みの :class:`sqlite3.Connection`。
+
+    Raises:
+        sqlite3.OperationalError: DB ファイルを開けない場合。
+    """
+    path = Path(db_path) if db_path != ":memory:" else db_path
+    if path != ":memory:":
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+    conn = sqlite3.connect(path, check_same_thread=False)
+    _configure(conn)
+    if not _is_migration_applied(conn):
+        _apply_migration(conn)
+        conn.commit()
+    return conn
+
+
 @contextmanager
 def get_connection(
     db_path: str | Path = "data/calls.db",

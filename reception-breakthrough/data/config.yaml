@@ -1,0 +1,48 @@
+# reception-breakthrough 全体設定 (T-600)
+# このファイルの値を変えるだけで動作が変わる。コードの中にマジックナンバーを書かない。
+
+database:
+  path: "data/calls.db"
+
+voice:
+  whisper_bin: null          # null で PATH 自動検索。例: "/usr/local/bin/whisper-cli"
+  model_path: null           # 例: "data/models/ggml-small.bin"
+  sample_rate: 16000
+  channels: 1
+  sample_width: 2            # bytes (16-bit PCM)
+
+silence:
+  rms_threshold: 300         # RMS がこれ未満で「無音」と判定
+  silence_limit_ms: 8000     # 累計無音がこれを超えると F2_silence
+
+state_machine:
+  unclear_limit: 3           # F1_unclear がこの回数連続すると強制終了
+  timeout_ms: 30000          # 応答なし EV_TIMEOUT の判定ミリ秒
+
+classifier:
+  min_confidence: 0.3        # これ未満は F1_unclear にフォールバック
+  keywords_yaml: "data/intent_keywords.yaml"
+
+response_builder:
+  templates_yaml: "data/response_templates.yaml"
+
+pipeline:
+  transcription_job:
+    max_records: 100
+  intent_labeling:
+    max_records: 500
+  failure_analysis:
+    failure_outcomes:
+      - OUT_REJECTED
+      - OUT_NOISE
+      - OUT_ABSENT
+  metrics:
+    export_dir: "data/exports"
+
+api:
+  host: "127.0.0.1"
+  port: 8000
+  reload: true
+
+crm:
+  adapter: "memory"          # "memory" | "file" | "external"

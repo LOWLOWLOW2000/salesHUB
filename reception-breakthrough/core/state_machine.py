@@ -409,3 +409,4 @@ class StateMachine:
                 extra_json,
             ),
         )
+        self._conn.commit()
