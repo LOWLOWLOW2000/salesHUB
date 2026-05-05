@@ -1,0 +1,565 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Company + project membership role (DB value = English short code).
+/// Tiers: `gm` → `manager`（会社）→ `director`（案件）→ `leader`（一時的 PJ運用リーダー）→ `is`|`fs`|`cs`（メンバー）。`as` は獲得営業（将来・獲得案件は director 同権を想定）。
+enum AppRole {
+  /// General Manager — 企業管理者。全ティア相当の操作、Manager 以下の任命、案件アサイン/除名。
+  gm
+  /// Manager — 全 PJ 閲覧（閲覧〜変更境界は別途強化）、Director 以下を任命。
+  manager
+  /// Director — 任命された PJ の管理（起案・メンバー招待などは ProjectMember で表現）。
+  director
+  /// Leader — 一時的に Director 相当の運用・設定権を PJ 単位で付与する役職（GM は会社ロールのみ変更可能）。
+  leader
+  /// Account Success — 獲得営業（計画: 獲得案件は director と同権の PJ 権限）。
+  as
+  is
+  fs
+  cs
+}
+
+enum KpiGranularity {
+  week
+  month
+}
+
+enum KpiScopeType {
+  company
+  division
+  project
+}
+
+enum MasterListItemStatus {
+  new
+  done
+  excluded
+}
+
+enum CallProviderKind {
+  mock
+  zoom_embed
+  external_url
+  webhook
+}
+
+enum MaterialSendMode {
+  csv
+  email
+}
+
+enum MasterListType {
+  project_sheet
+  house_list
+}
+
+enum CallRecordingSource {
+  zoom_phone
+}
+
+enum CallRecordingMatchStatus {
+  unmatched
+  matched_auto
+  matched_manual
+}
+
+enum CallTranscriptSource {
+  zoom
+  asr
+}
+
+enum CallTranscriptFormat {
+  vtt
+  txt
+  json
+}
+
+model AllowedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  divisions        Division[]
+  projects         Project[]
+  members          CompanyMember[]
+  salesAccounts    SalesAccount[]
+  masterLists      MasterList[]
+  materialAssets   MaterialAsset[]
+  callingSettings  CallingSettings?
+  kpiDefinitions   KpiDefinition[]
+}
+
+model Division {
+  id        String   @id
+  companyId String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  kpiDefinitions KpiDefinition[]
+
+  @@index([companyId])
+}
+
+model Project {
+  id         String   @id @default(cuid())
+  companyId  String
+  divisionId String?
+  name       String
+  /** フォルダ名・エクスポートファイル名に使う人間可読スラッグ（例: 2026-04_peak-hub） */
+  slug       String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  division Division? @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+
+  members       ProjectMember[]
+  callLogs      CallLog[]
+  recordings    CallRecording[]
+  dailyReports  DailyReport[]
+  scripts       ProjectScript[]
+  dealStages    DealStage[]
+  aiSuggestions AiSuggestion[]
+
+  kpiDefinitions KpiDefinition[]
+
+  @@index([companyId])
+  @@index([divisionId])
+}
+
+model SalesAccount {
+  id               String   @id @default(cuid())
+  companyId         String
+  corporateNumber   String?
+  displayName       String
+  nameNorm          String
+  phoneNorm         String
+  /** 内部重複排除キー: cr_ + SHA1(nameNorm|phoneNorm) の先頭16文字 */
+  clientRowId       String
+  /** PJシートの lead_id（例: PEAK-000001）。CSV投入時に付番した外部識別子 */
+  leadId            String?
+  domain            String?
+  headOfficeAddress String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts      SalesContact[]
+  masterListItems MasterListItem[]
+  callLogs      CallLog[]
+  materialSendLogs MaterialSendLog[]
+
+  @@index([companyId])
+  @@index([corporateNumber])
+  @@index([companyId, leadId])
+  @@unique([companyId, clientRowId])
+}
+
+model SalesContact {
+  id          String   @id
+  accountId   String
+  name        String
+  role        String   @default("")
+  email       String?
+  phoneDirect String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account        SalesAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  callLogs       CallLog[]
+  materialSendLogs MaterialSendLog[]
+
+  @@index([accountId])
+}
+
+model MasterList {
+  id                  String       @id @default(cuid())
+  companyId            String
+  name                String
+  ownerUserId          String
+  googleSheetName      String?
+  googleSpreadsheetId  String?
+  lastSyncedAt         DateTime?
+  listType             MasterListType @default(house_list)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner   User    @relation("MasterListOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  items   MasterListItem[]
+
+  @@index([companyId])
+  @@index([ownerUserId])
+  @@index([companyId, listType])
+}
+
+model MasterListItem {
+  id           String             @id @default(cuid())
+  masterListId String
+  accountId    String
+  companyName  String
+  phone        String
+  address      String             @default("")
+  targetUrl    String
+  status       MasterListItemStatus @default(new)
+  lastResult   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  masterList MasterList   @relation(fields: [masterListId], references: [id], onDelete: Cascade)
+  account    SalesAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  callLogs   CallLog[]
+
+  @@index([masterListId])
+  @@index([accountId])
+}
+
+model CallLog {
+  id             String   @id @default(cuid())
+  projectId      String
+  userId         String
+  accountId      String
+  contactId      String?
+  masterListItemId String?
+  result         String
+  memo           String   @default("")
+  structuredReport Json?
+  startedAt      DateTime @default(now())
+  endedAt        DateTime?
+  zoomMeetingId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account       SalesAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact       SalesContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  masterListItem MasterListItem? @relation(fields: [masterListItemId], references: [id], onDelete: SetNull)
+
+  recordings    CallRecording[]
+
+  @@index([projectId, startedAt])
+  @@index([userId])
+  @@index([accountId])
+}
+
+model CallRecording {
+  id               String                 @id
+  source           CallRecordingSource
+  sourceRecordingRef String              @unique
+
+  audioPath         String
+  transcriptPath    String?
+
+  transcriptText    String               @default("")
+  transcriptSource  CallTranscriptSource?
+  transcriptFormat  CallTranscriptFormat?
+
+  recordedAt        DateTime
+  durationSec       Int?
+  callerLabel       String               @default("")
+  calleePhoneNorm   String               @default("")
+  direction         String               @default("")
+  status            String               @default("")
+
+  matchStatus       CallRecordingMatchStatus @default(unmatched)
+  matchConfidence   Int                  @default(0)
+  matchedAt         DateTime?
+
+  projectId         String?
+  callLogId         String?
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  project           Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  callLog           CallLog?             @relation(fields: [callLogId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, recordedAt])
+  @@index([callLogId])
+  @@index([calleePhoneNorm])
+  @@index([recordedAt])
+  @@index([matchStatus])
+}
+
+model MaterialAsset {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String   @default("")
+  fileUrl     String
+  category    String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+model MaterialSendLog {
+  id        String         @id @default(cuid())
+  accountId String
+  contactId String?
+  userId    String
+  assetIds  Json
+  mode      MaterialSendMode
+  status    String         @default("ok")
+  sentAt    DateTime       @default(now())
+
+  account SalesAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact SalesContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([userId])
+}
+
+model CallingSettings {
+  id        String          @id
+  companyId String          @unique
+  provider  CallProviderKind @default(mock)
+  zoomCreds Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model DailyReport {
+  id                  String   @id @default(cuid())
+  projectId            String
+  userId               String
+  date                 DateTime
+  callCount            Int      @default(0)
+  connectCount         Int      @default(0)
+  receptionNgCount     Int      @default(0)
+  keymanNgCount        Int      @default(0)
+  materialSentCount    Int      @default(0)
+  appointmentCount     Int      @default(0)
+  callMinutes          Int      @default(0)
+  totalMinutes         Int      @default(0)
+  notes                String   @default("")
+  callSlots            String   @default("")
+  receptionNgReasons   String   @default("")
+  keymanNgReasons      String   @default("")
+  appointmentReasonTags String  @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, date])
+  @@index([projectId, date])
+  @@index([userId])
+}
+
+model ProjectScript {
+  id        String   @id @default(cuid())
+  projectId String
+  category  String
+  seq       Int
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, category])
+  @@index([projectId, category, seq])
+}
+
+model DealStage {
+  id              String   @id @default(cuid())
+  projectId       String
+  accountName     String
+  contactName     String   @default("")
+  stage           String
+  source          String   @default("")
+  amount          Int?
+  appointmentDate DateTime?
+  closedAt        DateTime?
+  lostReason      String   @default("")
+  wonReason       String   @default("")
+  notes           String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, stage])
+  @@index([projectId, appointmentDate])
+}
+
+model AiSuggestion {
+  id            String   @id @default(cuid())
+  projectId     String
+  periodStart   DateTime
+  periodEnd     DateTime
+  promptSummary String
+  suggestion    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model KpiDefinition {
+  id          String        @id
+  code        String
+  name        String
+  unit        String
+  formula     String
+  granularity KpiGranularity
+  notes       String
+  scopeType   KpiScopeType
+  companyId   String?
+  divisionId  String?
+  projectId   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company  Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  division Division? @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actuals  KpiActual[]
+
+  @@unique([scopeType, companyId, divisionId, projectId, code])
+  @@index([companyId])
+  @@index([divisionId])
+  @@index([projectId])
+}
+
+model KpiActual {
+  id              String        @id
+  kpiDefinitionId String
+  periodStart     DateTime
+  periodType      KpiGranularity
+  value           Float
+  sourceRef       String
+  fetchedAt       DateTime
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  kpiDefinition KpiDefinition @relation(fields: [kpiDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([kpiDefinitionId])
+  @@index([periodType, periodStart])
+  @@unique([kpiDefinitionId, periodType, periodStart, sourceRef])
+}
+
+model User {
+  id                    String   @id
+  name                  String?
+  email                 String?  @unique
+  /** Local login only; OAuth-only users leave null. */
+  passwordHash          String?
+  emailVerified         DateTime?
+  image                 String?
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  companyMembers CompanyMember[]
+  projectMembers ProjectMember[]
+  callLogs       CallLog[]
+  materialSendLogs MaterialSendLog[]
+  dailyReports   DailyReport[]
+  masterLists    MasterList[] @relation("MasterListOwner")
+}
+
+model CompanyMember {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  role      AppRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId, role])
+  @@index([companyId])
+  @@index([userId])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      AppRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, role])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
