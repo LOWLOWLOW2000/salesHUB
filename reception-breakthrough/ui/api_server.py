@@ -211,6 +211,33 @@ class ReviewTurnsResponse(BaseModel):
     turns: list[ReviewTurn]
 
 
+class ReviewSessionSummary(BaseModel):
+    session_id: str
+    lead_id: str
+    mode: str
+    outcome_id: str | None
+    created_at: str
+    reception_turns: int
+
+
+class ReviewSessionsResponse(BaseModel):
+    sessions: list[ReviewSessionSummary]
+    limit: int
+    offset: int
+
+
+class ReviewTurnDecisionRequest(BaseModel):
+    correct_intent: str = Field(..., description="オペが正解と判断した intent_id")
+    chosen_template_id: str | None = Field(
+        None, description="将来拡張用。採用テンプレート ID（現状は保存のみ）"
+    )
+    edited_text: str | None = Field(
+        None, description="将来拡張用。オペが編集した返答文（現状は保存のみ）"
+    )
+    note: str | None = Field(None, description="自由記述メモ（任意）")
+    reviewed_by: str | None = Field(None, description="レビュアー識別子（任意）")
+
+
 # ---------------------------------------------------------------------------
 # ヘルスチェック
 # ---------------------------------------------------------------------------
@@ -595,6 +622,43 @@ def _persist_predicted_label(
     return label_id
 
 
+def _update_label_review_fields(
+    conn: sqlite3.Connection,
+    *,
+    label_id: str,
+    correct_intent: str,
+    reviewed_by: str | None,
+    note: str | None,
+) -> int:
+    """Update review fields for one intent_labels row.
+
+    Returns:
+        Updated row count. 0 means label_id not found.
+    """
+    now = _now_iso()
+    cur = conn.execute(
+        """
+        UPDATE intent_labels
+           SET correct_intent = ?,
+               reviewed_by = ?,
+               reviewed_at = ?,
+               note = ?,
+               updated_at = ?
+         WHERE id = ?
+        """,
+        (
+            correct_intent,
+            reviewed_by,
+            now,
+            note,
+            now,
+            label_id,
+        ),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
 @app.post(
     "/review/{session_id}/suggest",
     tags=["review"],
@@ -656,27 +720,14 @@ def review_decide(session_id: str, body: ReviewDecideRequest) -> ReviewDecideRes
         raise HTTPException(status_code=409, detail="session already terminated")
 
     correct_intent = body.correct_intent or body.chosen_input_id
-    cur = conn.execute(
-        """
-        UPDATE intent_labels
-           SET correct_intent = ?,
-               reviewed_by = ?,
-               reviewed_at = ?,
-               note = ?,
-               updated_at = ?
-         WHERE id = ?
-        """,
-        (
-            correct_intent,
-            body.reviewed_by,
-            _now_iso(),
-            body.note,
-            _now_iso(),
-            body.label_id,
-        ),
+    updated = _update_label_review_fields(
+        conn,
+        label_id=body.label_id,
+        correct_intent=correct_intent,
+        reviewed_by=body.reviewed_by,
+        note=body.note,
     )
-    conn.commit()
-    if cur.rowcount == 0:
+    if updated == 0:
         raise HTTPException(status_code=404, detail="label_id not found")
 
     result = ctrl.step(body.chosen_input_id)
@@ -694,6 +745,56 @@ def review_decide(session_id: str, body: ReviewDecideRequest) -> ReviewDecideRes
         is_terminated=result.is_terminated,
         outcome_id=result.outcome_id,
     )
+
+
+@app.get("/review/sessions", tags=["review"], response_model=ReviewSessionsResponse)
+def review_sessions(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    outcome_id: str | None = Query(None),
+) -> ReviewSessionsResponse:
+    """レビュー対象セッション一覧（reception transcript があるもの）を返す。"""
+    with get_connection(_DB_PATH) as conn:
+        params: list[Any] = []
+        where_parts = [
+            "EXISTS (SELECT 1 FROM transcripts t WHERE t.session_id = cs.id AND t.speaker = 'reception')"
+        ]
+        if outcome_id:
+            where_parts.append("cs.outcome_id = ?")
+            params.append(outcome_id)
+        where_sql = " AND ".join(where_parts)
+        params.extend([limit, offset])
+
+        rows = conn.execute(
+            f"""
+            SELECT cs.id,
+                   cs.lead_id,
+                   cs.mode,
+                   cs.outcome_id,
+                   cs.created_at,
+                   (SELECT COUNT(*)
+                      FROM transcripts t
+                     WHERE t.session_id = cs.id AND t.speaker = 'reception') AS reception_turns
+              FROM call_sessions cs
+             WHERE {where_sql}
+             ORDER BY cs.created_at DESC
+             LIMIT ? OFFSET ?
+            """,
+            tuple(params),
+        ).fetchall()
+
+    sessions = [
+        ReviewSessionSummary(
+            session_id=r[0],
+            lead_id=r[1],
+            mode=r[2],
+            outcome_id=r[3],
+            created_at=r[4],
+            reception_turns=r[5],
+        )
+        for r in rows
+    ]
+    return ReviewSessionsResponse(sessions=sessions, limit=limit, offset=offset)
 
 
 @app.get(
@@ -750,6 +851,105 @@ def review_turns(session_id: str) -> ReviewTurnsResponse:
     return ReviewTurnsResponse(session_id=session_id, turns=turns)
 
 
+@app.get(
+    "/review/sessions/{session_id}/turns",
+    tags=["review"],
+    response_model=ReviewTurnsResponse,
+)
+def review_sessions_turns(session_id: str) -> ReviewTurnsResponse:
+    """計画互換エイリアス。内部では ``/review/{session_id}/turns`` と同一。"""
+    return review_turns(session_id)
+
+
+@app.post(
+    "/review/sessions/{session_id}/turns/{turn_id}/decision",
+    tags=["review"],
+    response_model=ReviewDecideResponse,
+)
+def review_turn_decision(
+    session_id: str, turn_id: str, body: ReviewTurnDecisionRequest
+) -> ReviewDecideResponse:
+    """計画互換 endpoint: turn 単位で判定を保存して 1 ステップ進める。"""
+    ctrl, conn = _get_active_ctrl(session_id)
+    if ctrl.is_terminated:
+        raise HTTPException(status_code=409, detail="session already terminated")
+
+    trow = conn.execute(
+        "SELECT id FROM transcripts WHERE id = ? AND session_id = ?",
+        (turn_id, session_id),
+    ).fetchone()
+    if trow is None:
+        raise HTTPException(status_code=404, detail="turn_id not found in this session")
+
+    lrow = conn.execute(
+        """
+        SELECT id
+          FROM intent_labels
+         WHERE transcript_id = ?
+         ORDER BY created_at DESC, id DESC
+         LIMIT 1
+        """,
+        (turn_id,),
+    ).fetchone()
+
+    now = _now_iso()
+    note_parts = [body.note] if body.note else []
+    if body.chosen_template_id:
+        note_parts.append(f"chosen_template_id={body.chosen_template_id}")
+    if body.edited_text:
+        note_parts.append(f"edited_text={body.edited_text}")
+    final_note = " | ".join(note_parts) if note_parts else None
+
+    if lrow is None:
+        label_id = str(uuid.uuid4())
+        conn.execute(
+            """
+            INSERT INTO intent_labels
+              (id, transcript_id, predicted_intent, correct_intent, confidence,
+               reviewed_by, reviewed_at, note, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                label_id,
+                turn_id,
+                body.correct_intent,
+                body.correct_intent,
+                0.0,
+                body.reviewed_by,
+                now,
+                final_note,
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+    else:
+        label_id = lrow[0]
+        _update_label_review_fields(
+            conn,
+            label_id=label_id,
+            correct_intent=body.correct_intent,
+            reviewed_by=body.reviewed_by,
+            note=final_note,
+        )
+
+    result = ctrl.step(body.correct_intent)
+    if result.is_terminated:
+        _active_sessions.pop(session_id, None)
+        conn.close()
+
+    return ReviewDecideResponse(
+        session_id=session_id,
+        label_id=label_id,
+        from_state=result.transition.from_state,
+        to_state=result.transition.to_state,
+        input_id=result.transition.input_id,
+        response_text=result.response.text if result.response else None,
+        is_terminated=result.is_terminated,
+        outcome_id=result.outcome_id,
+    )
+
+
 @app.get("/review/labels.csv", tags=["review"])
 def review_labels_csv(
     limit: int = Query(1000, ge=1, le=10000),
@@ -796,6 +996,14 @@ def review_labels_csv(
         writer.writerow(["" if v is None else v for v in r])
 
     return PlainTextResponse(buf.getvalue(), media_type="text/csv; charset=utf-8")
+
+
+@app.get("/review/exports/labels.csv", tags=["review"])
+def review_labels_csv_export_alias(
+    limit: int = Query(1000, ge=1, le=10000),
+) -> PlainTextResponse:
+    """計画互換エイリアス（``/review/labels.csv`` と同一）。"""
+    return review_labels_csv(limit=limit)
 
 
 # ---------------------------------------------------------------------------

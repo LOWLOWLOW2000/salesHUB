@@ -7,6 +7,9 @@
 - ``session / daily / rejected_rate``  — OUT_REJECTED の割合
 - ``session / daily / absent_rate``    — OUT_ABSENT の割合
 - ``session / daily / noise_rate``     — OUT_NOISE の割合
+- ``session / daily / labels_reviewed`` — 人手レビュー済みラベル数
+- ``session / daily / labels_corrected_ratio`` — レビュー済み中の訂正率
+- ``session / daily / fallback_used_ratio`` — F1_unclear 予測の利用比率
 - ``intent / <intent_id> / count``     — 当日のインテント別ラベリング件数
 - ``intent / <intent_id> / correct_rate`` — 正解率（ヒューマンレビュー済みのみ）
 
@@ -86,6 +89,7 @@ def run_metrics(
 
     with get_connection(db_path) as conn:
         rows.extend(_compute_session_metrics(conn, date_str))
+        rows.extend(_compute_review_metrics(conn, date_str))
         rows.extend(_compute_intent_metrics(conn, date_str))
 
         now = datetime.now(timezone.utc).isoformat()
@@ -198,6 +202,65 @@ def _compute_intent_metrics(conn, date_str: str) -> list[MetricRow]:
                 )
             )
     return metrics
+
+
+def _compute_review_metrics(conn, date_str: str) -> list[MetricRow]:
+    """レビュー系メトリクスを集計する。
+
+    - labels_reviewed: ``correct_intent`` が埋まった件数
+    - labels_corrected_ratio: reviewed のうち ``correct_intent != predicted_intent`` の割合
+    - fallback_used_ratio: 予測 intent が ``F1_unclear`` だった割合
+    """
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) AS total_labels,
+            SUM(CASE WHEN correct_intent IS NOT NULL THEN 1 ELSE 0 END) AS reviewed_labels,
+            SUM(
+                CASE
+                    WHEN correct_intent IS NOT NULL
+                     AND correct_intent != predicted_intent THEN 1
+                    ELSE 0
+                END
+            ) AS corrected_labels,
+            SUM(CASE WHEN predicted_intent = 'F1_unclear' THEN 1 ELSE 0 END) AS fallback_labels
+        FROM intent_labels
+        WHERE DATE(created_at) = ?
+        """,
+        (date_str,),
+    ).fetchone()
+
+    total_labels = float(row[0] or 0)
+    reviewed_labels = float(row[1] or 0)
+    corrected_labels = float(row[2] or 0)
+    fallback_labels = float(row[3] or 0)
+
+    corrected_ratio = round(corrected_labels / reviewed_labels, 4) if reviewed_labels else 0.0
+    fallback_ratio = round(fallback_labels / total_labels, 4) if total_labels else 0.0
+
+    return [
+        MetricRow(
+            date_str,
+            "session",
+            "daily",
+            "labels_reviewed",
+            reviewed_labels,
+        ),
+        MetricRow(
+            date_str,
+            "session",
+            "daily",
+            "labels_corrected_ratio",
+            corrected_ratio,
+        ),
+        MetricRow(
+            date_str,
+            "session",
+            "daily",
+            "fallback_used_ratio",
+            fallback_ratio,
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------

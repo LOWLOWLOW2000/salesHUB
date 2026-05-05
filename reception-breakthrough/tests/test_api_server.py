@@ -400,3 +400,76 @@ def test_review_labels_csv_exports_rows(client: TestClient) -> None:
     assert "predicted_intent,correct_intent" in body
     assert "C1_hard_reject" in body
     assert sid in body
+
+
+def test_review_sessions_endpoint_lists_sessions_with_transcripts(
+    client: TestClient,
+) -> None:
+    sid = _start_session_at_s2(client, lead_id="L-REV-LIST")
+    client.post(
+        f"/review/{sid}/suggest",
+        json={"utterance": "ご担当の方にお繋ぎいただけますか"},
+    )
+
+    resp = client.get("/review/sessions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "sessions" in data
+    assert any(s["session_id"] == sid for s in data["sessions"])
+    target = next(s for s in data["sessions"] if s["session_id"] == sid)
+    assert target["reception_turns"] >= 1
+
+
+def test_review_sessions_turns_alias_endpoint(client: TestClient) -> None:
+    sid = _start_session_at_s2(client, lead_id="L-REV-ALIAS")
+    client.post(f"/review/{sid}/suggest", json={"utterance": "はい"})
+
+    resp = client.get(f"/review/sessions/{sid}/turns")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["session_id"] == sid
+    assert len(data["turns"]) >= 1
+
+
+def test_review_turn_decision_endpoint_advances_state(client: TestClient) -> None:
+    sid = _start_session_at_s2(client, lead_id="L-REV-DECIDE")
+    sug = client.post(
+        f"/review/{sid}/suggest",
+        json={"utterance": "ご担当の方にお繋ぎいただけますか"},
+    ).json()
+
+    turn_id = sug["transcript_id"]
+    resp = client.post(
+        f"/review/sessions/{sid}/turns/{turn_id}/decision",
+        json={
+            "correct_intent": "B1_simple_purpose",
+            "chosen_template_id": "RT_PURPOSE_SHORT",
+            "edited_text": "編集テキスト",
+            "reviewed_by": "tester",
+            "note": "turn decision endpoint test",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["from_state"] == "S2"
+    assert data["to_state"] == "S3"
+    assert data["input_id"] == "B1_simple_purpose"
+
+
+def test_review_exports_labels_csv_alias_endpoint(client: TestClient) -> None:
+    sid = _start_session_at_s2(client, lead_id="L-REV-CSV")
+    sug = client.post(
+        f"/review/{sid}/suggest", json={"utterance": "営業はお断りしています"}
+    ).json()
+    client.post(
+        f"/review/{sid}/decide",
+        json={
+            "label_id": sug["label_id"],
+            "chosen_input_id": "C1_hard_reject",
+        },
+    )
+
+    resp = client.get("/review/exports/labels.csv")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers.get("content-type", "")
+    assert sid in resp.text

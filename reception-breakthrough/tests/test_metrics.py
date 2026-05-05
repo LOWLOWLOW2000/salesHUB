@@ -191,3 +191,41 @@ def test_no_data_returns_total_sessions_zero(tmp_path: Path) -> None:
     total = next((r for r in session_rows if r.metric_name == "total_sessions"), None)
     assert total is not None
     assert total.metric_value == 0.0
+
+
+def test_review_metrics_are_computed(tmp_path: Path) -> None:
+    """レビュー件数・訂正率・fallback 比率が算出される。"""
+    db = tmp_path / "test.db"
+    export = tmp_path / "exports"
+
+    with get_connection(db) as conn:
+        _insert_outcome(conn, "s1", "OUT_CONNECTED")
+        _insert_intent_label(conn, "s1", "A1_listening", correct_intent="A1_listening")
+        _insert_intent_label(conn, "s1", "A1_listening", correct_intent="B1_simple_purpose")
+        _insert_intent_label(conn, "s1", "F1_unclear", correct_intent=None)
+
+    rows = run_metrics(db_path=db, export_dir=export)
+    session_rows = {
+        r.metric_name: r.metric_value for r in rows if r.scope_type == "session"
+    }
+
+    # reviewed = 2（correct_intent が埋まっている 2 件）
+    assert session_rows.get("labels_reviewed") == 2.0
+    # corrected = 1 / reviewed 2 = 0.5
+    assert abs(session_rows.get("labels_corrected_ratio", -1) - 0.5) < 1e-4
+    # fallback predicted(F1_unclear)=1 / total_labels 3 = 0.3333...
+    assert abs(session_rows.get("fallback_used_ratio", -1) - 0.3333) < 1e-4
+
+
+def test_review_metrics_default_to_zero_without_labels(tmp_path: Path) -> None:
+    """ラベルが無い日は review 系 3 指標が 0 で返る。"""
+    db = tmp_path / "test.db"
+    export = tmp_path / "exports"
+
+    rows = run_metrics(db_path=db, export_dir=export)
+    session_rows = {
+        r.metric_name: r.metric_value for r in rows if r.scope_type == "session"
+    }
+    assert session_rows.get("labels_reviewed") == 0.0
+    assert session_rows.get("labels_corrected_ratio") == 0.0
+    assert session_rows.get("fallback_used_ratio") == 0.0
