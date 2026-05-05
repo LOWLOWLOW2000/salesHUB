@@ -109,6 +109,44 @@ class ApiConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class AiIntentFallbackConfig:
+    """ローカル分類の confidence が低い時にクラウドへ回すためのスイッチ。
+
+    本フェーズでは ``enabled=False`` 固定（クラウド未実装）。将来の差し替えで
+    有効化する。
+    """
+
+    enabled: bool = False
+    confidence_threshold: float = 0.55
+
+
+@dataclass(frozen=True, slots=True)
+class AiIntentConfig:
+    """intent 分類プロバイダの設定。"""
+
+    provider: str = "local_rules"
+    fallback: AiIntentFallbackConfig = field(default_factory=AiIntentFallbackConfig)
+
+
+@dataclass(frozen=True, slots=True)
+class AiSttConfig:
+    """音声→テキスト プロバイダの設定。"""
+
+    provider: str = "local_whisper"
+
+
+@dataclass(frozen=True, slots=True)
+class AiConfig:
+    """AI プロバイダ全体設定の root。
+
+    既定はこのマシン上の完全ローカル（``local_rules`` / ``local_whisper``）。
+    """
+
+    intent: AiIntentConfig = field(default_factory=AiIntentConfig)
+    stt: AiSttConfig = field(default_factory=AiSttConfig)
+
+
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     """アプリ全体設定の root オブジェクト。"""
 
@@ -122,6 +160,7 @@ class AppConfig:
     )
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     api: ApiConfig = field(default_factory=ApiConfig)
+    ai: AiConfig = field(default_factory=AiConfig)
     crm_adapter: str = "memory"
 
 
@@ -148,11 +187,16 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
     rb_raw = raw.get("response_builder", {})
     pipe_raw = raw.get("pipeline", {})
     api_raw = raw.get("api", {})
+    ai_raw = raw.get("ai", {})
 
     tj_raw = pipe_raw.get("transcription_job", {})
     il_raw = pipe_raw.get("intent_labeling", {})
     fa_raw = pipe_raw.get("failure_analysis", {})
     mt_raw = pipe_raw.get("metrics", {})
+
+    ai_intent_raw = ai_raw.get("intent", {})
+    ai_intent_fb_raw = ai_intent_raw.get("fallback", {})
+    ai_stt_raw = ai_raw.get("stt", {})
 
     return AppConfig(
         database=DatabaseConfig(path=db_raw.get("path", "data/calls.db")),
@@ -205,6 +249,20 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             host=api_raw.get("host", "127.0.0.1"),
             port=api_raw.get("port", 8000),
             reload=api_raw.get("reload", True),
+        ),
+        ai=AiConfig(
+            intent=AiIntentConfig(
+                provider=ai_intent_raw.get("provider", "local_rules"),
+                fallback=AiIntentFallbackConfig(
+                    enabled=bool(ai_intent_fb_raw.get("enabled", False)),
+                    confidence_threshold=float(
+                        ai_intent_fb_raw.get("confidence_threshold", 0.55)
+                    ),
+                ),
+            ),
+            stt=AiSttConfig(
+                provider=ai_stt_raw.get("provider", "local_whisper"),
+            ),
         ),
         crm_adapter=raw.get("crm", {}).get("adapter", "memory"),
     )

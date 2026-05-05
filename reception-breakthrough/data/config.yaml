@@ -44,5 +44,17 @@ api:
   port: 8000
   reload: true
 
+# AI プロバイダ設定（既定は完全ローカル / このPCで動作）
+# 「実用に耐えなかった場合」のクラウド差し替えのため境界だけ用意してある。
+# 本フェーズでは provider: "cloud" は未実装で、選ぶと初期化時に例外が出る。
+ai:
+  intent:
+    provider: "local_rules"          # local_rules | cloud
+    fallback:
+      enabled: false                 # クラウド未実装のため false 固定
+      confidence_threshold: 0.55     # 将来クラウド有効化時の閾値
+  stt:
+    provider: "local_whisper"        # local_whisper | cloud
+
 crm:
   adapter: "memory"          # "memory" | "file" | "external"

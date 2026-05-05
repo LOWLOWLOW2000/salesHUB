@@ -82,3 +82,43 @@ def test_failure_analysis_defaults(tmp_path: Path) -> None:
     assert "OUT_REJECTED" in fo
     assert "OUT_NOISE" in fo
     assert "OUT_ABSENT" in fo
+
+
+def test_ai_defaults_are_local(tmp_path: Path) -> None:
+    """ai セクションのデフォルトは完全ローカルかつ fallback 無効であること。"""
+    empty = tmp_path / "ai_empty.yaml"
+    empty.write_text("{}", encoding="utf-8")
+
+    cfg = get_config(str(empty))
+    assert cfg.ai.intent.provider == "local_rules"
+    assert cfg.ai.stt.provider == "local_whisper"
+    assert cfg.ai.intent.fallback.enabled is False
+    assert 0.0 <= cfg.ai.intent.fallback.confidence_threshold <= 1.0
+
+
+def test_ai_yaml_overrides(tmp_path: Path) -> None:
+    """ai セクションの上書きが反映されること。"""
+    custom = tmp_path / "ai.yaml"
+    custom.write_text(
+        yaml.dump(
+            {
+                "ai": {
+                    "intent": {
+                        "provider": "cloud",
+                        "fallback": {
+                            "enabled": True,
+                            "confidence_threshold": 0.7,
+                        },
+                    },
+                    "stt": {"provider": "cloud"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = get_config(str(custom))
+    assert cfg.ai.intent.provider == "cloud"
+    assert cfg.ai.stt.provider == "cloud"
+    assert cfg.ai.intent.fallback.enabled is True
+    assert cfg.ai.intent.fallback.confidence_threshold == 0.7
