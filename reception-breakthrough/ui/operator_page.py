@@ -30,6 +30,11 @@ OPERATOR_HTML = """<!DOCTYPE html>
     .conf-bar { height:6px; background:rgb(229,231,235); border-radius:3px; overflow:hidden; }
     .conf-fill { height:100%; background:rgb(59,130,246); }
     .lang-en .ja, .lang-ja .en { display: none; }
+    .pulse-attn { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); animation: pulse 1.2s ease-out 3; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+      100% { box-shadow: 0 0 0 14px rgba(245, 158, 11, 0); }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 lang-ja">
@@ -53,24 +58,63 @@ OPERATOR_HTML = """<!DOCTYPE html>
   </header>
 
   <main class="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <!-- 0. かんたん説明書 -->
+    <section id="help-card" class="card bg-amber-50 border-amber-200 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <h2 class="text-sm font-semibold text-amber-900">
+          <span class="ja">はじめに（使い方）</span>
+          <span class="en">Quick Start</span>
+        </h2>
+        <button id="btn-help-toggle" class="text-xs border border-amber-300 rounded px-2 py-1 bg-white/60 hover:bg-white">
+          <span class="ja" data-open-label="閉じる" data-closed-label="開く">閉じる</span>
+          <span class="en" data-open-label="Hide" data-closed-label="Show">Hide</span>
+        </button>
+      </div>
+      <div id="help-body" class="mt-2">
+      <ol class="text-sm text-amber-900 space-y-1 list-decimal pl-5">
+        <li>
+          <span class="ja"><b>新規</b>を押す（通話メモを作ります）</span>
+          <span class="en">Click <b>New</b> (creates a call memo)</span>
+        </li>
+        <li>
+          <span class="ja">受付の言葉を<b>そのまま</b>入れる</span>
+          <span class="en">Paste the receptionist's words <b>as-is</b></span>
+        </li>
+        <li>
+          <span class="ja"><b>候補を取得</b> → よさそうな候補を押す</span>
+          <span class="en">Click <b>Get suggestions</b> -> choose the best one</span>
+        </li>
+      </ol>
+      <div class="mt-3 text-xs text-amber-900/90 leading-relaxed">
+        <p class="ja">
+          見る場所は <b>say</b>（次に言うセリフ）です。迷ったら <b>%</b>（自信度）が高いものを選び、
+          外れていたら「違う intent で進める…」で直してください。
+        </p>
+        <p class="en">
+          Focus on <b>say</b> (what to say next). If unsure, pick higher <b>%</b>.
+          If the AI is wrong, use "Override intent...".
+        </p>
+      </div>
+      </div>
+    </section>
 
     <!-- 1. セッション選択 -->
     <section class="card bg-white p-4">
       <h2 class="text-sm font-semibold text-slate-700 mb-3">
-        <span class="ja">1. セッションを選ぶ／作る</span>
-        <span class="en">1. Pick or create a session</span>
+        <span class="ja">1. はじめる（新しく作る）</span>
+        <span class="en">1. Start (create new)</span>
       </h2>
       <div class="flex flex-wrap items-end gap-3">
         <div>
           <label class="block text-xs text-slate-500 mb-1">
-            <span class="ja">セッション ID</span>
-            <span class="en">Session ID</span>
+            <span class="ja">通話メモ ID</span>
+            <span class="en">Call memo ID</span>
           </label>
           <input id="session-id" type="text" class="border border-slate-300 rounded px-2 py-1 text-sm w-80" placeholder="UUID..." />
         </div>
         <button id="btn-new-session" class="px-3 py-1 text-sm border border-slate-300 rounded bg-slate-50 hover:bg-slate-100">
-          <span class="ja">新規（モード HUMAN・S2 まで進める）</span>
-          <span class="en">New (HUMAN mode, advance to S2)</span>
+          <span class="ja">新規（すぐ使える状態にする）</span>
+          <span class="en">New (prepare for use)</span>
         </button>
         <span id="state-label" class="text-sm text-slate-600"></span>
       </div>
@@ -105,8 +149,8 @@ OPERATOR_HTML = """<!DOCTYPE html>
     <section class="card bg-white p-4">
       <h2 class="text-sm font-semibold text-slate-700 mb-3 flex justify-between items-center">
         <span>
-          <span class="ja">4. このセッションの履歴</span>
-          <span class="en">4. Turns in this session</span>
+          <span class="ja">4. これまでの記録</span>
+          <span class="en">4. History</span>
         </span>
         <button id="btn-refresh-turns" class="text-xs text-blue-600 hover:underline">
           <span class="ja">再読み込み</span>
@@ -149,6 +193,41 @@ OPERATOR_HTML = """<!DOCTYPE html>
 
     let lastLabelId = null;
     let lastSuggestions = [];
+
+    // ---- Help: collapsible + first-visit attention ----
+    const HELP_KEY = "rb_operator_help_dismissed_v1";
+    const helpCard = $("help-card");
+    const helpBody = $("help-body");
+    const helpBtn = $("btn-help-toggle");
+    const helpJa = helpBtn ? helpBtn.querySelector(".ja") : null;
+    const helpEn = helpBtn ? helpBtn.querySelector(".en") : null;
+
+    function setHelpOpen(isOpen, { remember } = { remember: true }) {
+      if (!helpBody || !helpBtn) return;
+      helpBody.classList.toggle("hidden", !isOpen);
+      if (helpJa) helpJa.textContent = isOpen ? helpJa.dataset.openLabel : helpJa.dataset.closedLabel;
+      if (helpEn) helpEn.textContent = isOpen ? helpEn.dataset.openLabel : helpEn.dataset.closedLabel;
+      if (remember) {
+        try { localStorage.setItem(HELP_KEY, String(!isOpen)); } catch (_) {}
+      }
+    }
+
+    (function initHelp() {
+      let dismissed = false;
+      try { dismissed = localStorage.getItem(HELP_KEY) === "true"; } catch (_) {}
+      setHelpOpen(!dismissed, { remember: false });
+      if (!dismissed && helpCard) {
+        helpCard.classList.add("pulse-attn");
+        setTimeout(() => helpCard.classList.remove("pulse-attn"), 4200);
+      }
+    })();
+
+    if (helpBtn) {
+      helpBtn.addEventListener("click", () => {
+        const isOpen = !helpBody.classList.contains("hidden");
+        setHelpOpen(!isOpen, { remember: true });
+      });
+    }
 
     async function jsonFetch(url, opts) {
       const resp = await fetch(url, opts);
