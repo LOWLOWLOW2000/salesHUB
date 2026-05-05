@@ -73,11 +73,11 @@ OPERATOR_HTML = """<!DOCTYPE html>
       <div id="help-body" class="mt-2">
       <ol class="text-sm text-amber-900 space-y-1 list-decimal pl-5">
         <li>
-          <span class="ja"><b>新規</b>を押す（通話メモを作ります）</span>
+          <span class="ja"><b>新規</b>を押す（通話のメモを作ります）</span>
           <span class="en">Click <b>New</b> (creates a call memo)</span>
         </li>
         <li>
-          <span class="ja">受付の言葉を<b>そのまま</b>入れる</span>
+          <span class="ja">受付の言葉を<b>そのまま</b>入れる（次で相手の言葉から答えを生成）</span>
           <span class="en">Paste the receptionist's words <b>as-is</b></span>
         </li>
         <li>
