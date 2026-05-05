@@ -176,6 +176,15 @@ class CallController:
     def is_terminated(self) -> bool:
         return self._sm.state == "S11"
 
+    @property
+    def last_c_intent(self) -> str | None:
+        """Most recent C-series intent (for RT_REBUTTAL_BY_C_TYPE routing).
+
+        Read by external callers that need to render C-series rebuttals
+        without driving a step (e.g. SuggestionEngine preview).
+        """
+        return self._last_c_intent
+
     # ── Public entry points ──────────────────────────────────────────────────
 
     def step(self, input_id: str) -> StepResult:

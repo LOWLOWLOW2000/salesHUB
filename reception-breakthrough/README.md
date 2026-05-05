@@ -83,7 +83,7 @@ python -m pytest tests/ -v
 
 # 5. API サーバー起動（開発モード）
 uvicorn ui.api_server:app --reload --port 8000
-# http://127.0.0.1:8000/docs でインタラクティブ API ドキュメントが開く
+# http://127.0.0.1:8000/docs — Swagger UI（ツールバーで英語 / 日本語スキーマ切替）
 ```
 
 ---
