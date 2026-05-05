@@ -48,6 +48,7 @@ from infra.db.local_db import get_connection, open_persistent_connection
 from infra.external.ai_provider import IntentCandidate, get_intent_provider
 from infra.external.crm_adapter import InMemoryCRMAdapter
 from ui.openapi_i18n import localized_openapi_schema
+from ui.operator_page import OPERATOR_HTML
 from ui.swagger_docs import DOCS_HTML
 
 # ---------------------------------------------------------------------------
@@ -806,6 +807,16 @@ def review_labels_csv(
 def swagger_ui_docs() -> HTMLResponse:
     """Swagger UI。ツールバーで英語 / 日本語の OpenAPI を切り替える。"""
     return HTMLResponse(content=DOCS_HTML, media_type="text/html; charset=utf-8")
+
+
+@app.get("/operator", include_in_schema=False)
+def operator_assist_page() -> HTMLResponse:
+    """半自動オペ補助 UI（HTML 1 ページ、依存追加なし）。
+
+    ``/review/*`` API を画面から叩いて、候補表示 → 採否 → state 進行 の
+    一連の流れをマウスでできるようにする。
+    """
+    return HTMLResponse(content=OPERATOR_HTML, media_type="text/html; charset=utf-8")
 
 
 @app.get("/openapi-en.json", include_in_schema=False)

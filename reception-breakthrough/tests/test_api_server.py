@@ -365,6 +365,20 @@ def test_review_decide_unknown_label_404(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
+def test_operator_page_renders_html(client: TestClient) -> None:
+    """/operator が HTML で返り、最低限の要素 ID を含むこと。"""
+    resp = client.get("/operator")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+    body = resp.content
+    assert b"id=\"session-id\"" in body
+    assert b"id=\"utterance\"" in body
+    assert b"id=\"suggestions\"" in body
+    assert b"/review/" in body  # JS が API パスを参照していること
+    assert "受付突破".encode("utf-8") in body  # ja
+    assert b"Operator Assist" in body  # en
+
+
 def test_review_labels_csv_exports_rows(client: TestClient) -> None:
     sid = _start_session_at_s2(client)
     sug = client.post(
