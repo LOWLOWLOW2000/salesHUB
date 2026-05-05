@@ -154,6 +154,42 @@ _SILENCE_THRESHOLD_MS: int = 8_000
 
 
 # ---------------------------------------------------------------------------
+# Read-only accessor for the transition table (used by SuggestionEngine etc.)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionPreview:
+    """Preview of where a (state, input) pair would land.
+
+    This is intentionally a *non-side-effecting* view of the transition table
+    so callers (SuggestionEngine, UI) can render "if you pick this intent we
+    will go to S3 with template RT_*" without mutating any state.
+    """
+
+    next_state: str
+    response_template_id: str | None
+    side_effects: tuple[str, ...]
+
+
+def lookup_transition(state: str, input_id: str) -> TransitionPreview | None:
+    """Return the transition that would fire for ``(state, input_id)``.
+
+    Returns ``None`` when the pair is not in the normal transition table.
+    Exception inputs (F*, EV_TIMEOUT, EV_HANGUP) are intentionally excluded —
+    the SuggestionEngine treats them as "stay in place / fallback".
+    """
+    tdef = _TRANSITIONS.get((state, input_id))
+    if tdef is None:
+        return None
+    return TransitionPreview(
+        next_state=tdef.to_state,
+        response_template_id=tdef.response_template_id,
+        side_effects=tdef.side_effects,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public result type
 # ---------------------------------------------------------------------------
 
